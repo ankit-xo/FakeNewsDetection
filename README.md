@@ -153,6 +153,17 @@ Output model path:
 - `venv/` is intentionally ignored by git.
 - Dataset CSV files in `data/` are tracked using Git LFS.
 
+## Future Roadmap
+
+- Add support for URL-based news checking (fetch article + predict automatically).
+- Improve model with transformer-based architectures for better context understanding.
+- Add multilingual support (Hindi + English mixed text detection).
+- Build an admin dashboard for feedback analytics and model performance tracking.
+- Integrate automated retraining pipeline using collected user feedback.
+- Add Docker setup and CI/CD workflow for one-command deployment.
+- Provide REST API documentation with Swagger usage examples.
+- Introduce user authentication and role-based moderation tools.
+
 ## Troubleshooting
 
 - **Model not loaded**
