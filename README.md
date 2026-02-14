@@ -1,5 +1,12 @@
 # Fake News Detection
 
+![Author](https://img.shields.io/badge/Author-Ankit-blue?style=for-the-badge)
+![GitHub](https://img.shields.io/badge/GitHub-ankit--xo-black?style=for-the-badge&logo=github)
+![Project](https://img.shields.io/badge/Project-FakeNewsDetection-success?style=for-the-badge)
+
+### Created by Ankit
+GitHub: [@ankit-xo](https://github.com/ankit-xo)
+
 A FastAPI-based web app that predicts whether a news item is **REAL** or **FAKE** using an ML model.  
 It supports both:
 - Text input classification
@@ -31,7 +38,7 @@ The project also includes feedback logging and a training script to rebuild the 
 ## Project Structure
 
 ```text
-Fake_News_Detection/
+FakeNewsDetection/
 ├── app/
 │   ├── main.py
 │   ├── static/
@@ -39,7 +46,7 @@ Fake_News_Detection/
 │   │   └── styles.css
 │   └── templates/
 │       └── index.html
-├── data/                       # local datasets (gitignored)
+├── data/                       # datasets tracked via Git LFS
 ├── feedback/
 │   └── feedback_log.json
 ├── models/
@@ -143,7 +150,8 @@ Output model path:
 
 - Current probability threshold for REAL is `0.50` (`PROB_THRESHOLD` in `app/main.py`).
 - If no model file is found, app still starts but prediction route will show `Model not loaded`.
-- `data/` and `venv/` are intentionally ignored by git.
+- `venv/` is intentionally ignored by git.
+- Dataset CSV files in `data/` are tracked using Git LFS.
 
 ## Troubleshooting
 
@@ -166,4 +174,3 @@ Output model path:
     source venv/bin/activate
     pip install -r requirements.txt
     ```
-
