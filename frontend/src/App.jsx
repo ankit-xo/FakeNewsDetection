@@ -24,8 +24,22 @@ function emptyResult(note = null) {
 }
 
 
+const BASE_PATH = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '') || ''
+
+function withBasePath(path) {
+  if (!BASE_PATH) return path
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return `${BASE_PATH}${normalizedPath}`
+}
+
+function stripBasePath(pathname) {
+  if (!BASE_PATH) return pathname
+  if (pathname === BASE_PATH) return '/'
+  return pathname.startsWith(`${BASE_PATH}/`) ? pathname.slice(BASE_PATH.length) : pathname
+}
+
 function readRouteFromPath() {
-  const path = (window.location.pathname || '/').toLowerCase().replace(/\/+$/, '') || '/'
+  const path = (stripBasePath(window.location.pathname || '/') || '/').toLowerCase().replace(/\/+$/, '') || '/'
 
   if (path === '/home' || path === '/') {
     return { activePage: 'home', activeNav: 'home', mode: 'text' }
@@ -102,7 +116,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const nextPath = stateToPath(activePage, mode)
+    const nextPath = withBasePath(stateToPath(activePage, mode))
     if (window.location.pathname !== nextPath) {
       window.history.pushState(null, '', nextPath)
     }

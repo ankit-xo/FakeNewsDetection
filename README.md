@@ -57,6 +57,36 @@ cd FakeNewsDetection
 ```
 
 
+## Deploy on GitHub Pages (Frontend)
+
+```bash
+cd frontend
+npm install
+npm run deploy
+```
+
+Live URL:
+- `https://ankit-xo.github.io/FakeNewsDetection/home`
+
+Important:
+- GitHub Pages only hosts the frontend static app.
+- For live predictions, set `VITE_API_BASE_URL` to your deployed backend URL before deploy.
+
+macOS / Linux example:
+
+```bash
+cd frontend
+VITE_API_BASE_URL=https://your-backend-url.com npm run deploy
+```
+
+Windows PowerShell example:
+
+```powershell
+cd frontend
+$env:VITE_API_BASE_URL="https://your-backend-url.com"
+npm run deploy
+```
+
 ## Run Locally (macOS / Linux)
 
 1. Backend
