@@ -1,5 +1,9 @@
 # train.py
 import os
+import sys
+
+sys.dont_write_bytecode = True
+
 import re
 import pandas as pd
 import joblib
@@ -14,12 +18,17 @@ from sklearn.utils import shuffle
 print("🚀 Fake News Detection – Model Training Started")
 
 # -------- PATHS --------
-FAKE_PATH = "data/false.csv"
-TRUE_PATH = "data/true.csv"
-REAL_TEST_PATH = "data/real_test.csv"
+CODE_DIR = os.path.dirname(os.path.abspath(__file__))
+BACKEND_DIR = os.path.dirname(CODE_DIR)
+PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
+DATA_DIR = os.path.join(PROJECT_ROOT, "dataset")
+MODEL_DIR = os.path.join(BACKEND_DIR, "models")
 
-MODEL_DIR = "models"
-MODEL_PATH = os.path.join(MODEL_DIR, "best_model.joblib")  # 🔥 main.py compatible
+FAKE_PATH = os.path.join(DATA_DIR, "False.csv")
+TRUE_PATH = os.path.join(DATA_DIR, "True.csv")
+REAL_TEST_PATH = os.path.join(DATA_DIR, "real_test.csv")
+
+MODEL_PATH = os.path.join(MODEL_DIR, "best_model.joblib")  # backend/core/main.py compatible
 
 # -------- TEXT CLEANING --------
 def clean_text(text):
