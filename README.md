@@ -49,6 +49,14 @@ FakeNewsDetection/
 - npm
 - Tesseract OCR installed
 
+## Clone the Repo
+
+```bash
+git clone https://github.com/ankit-xo/FakeNewsDetection.git
+cd FakeNewsDetection
+```
+
+
 ## Run Locally (macOS / Linux)
 
 1. Backend
