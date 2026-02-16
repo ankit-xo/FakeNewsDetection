@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/FakeNewsDetection/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      ;(function (location) {
+        if (location.search[1] === '/') {
+          const decoded = location.search
+            .slice(1)
+            .split('&')
+            .map((segment) => segment.replace(/~and~/g, '&'))
+            .join('?')
+          window.history.replaceState(null, '', decoded + location.hash)
+        }
+      })(window.location)
+    </script>
+    <title>Fake News Detection</title>
+    <script type="module" crossorigin src="/FakeNewsDetection/assets/index-Bn8HYnP6.js"></script>
+    <link rel="stylesheet" crossorigin href="/FakeNewsDetection/assets/index-CIVuaI3R.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

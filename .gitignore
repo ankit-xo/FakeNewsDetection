@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+.vscode/
+
+# Frontend artifacts
+frontend/node_modules/
+frontend/dist/
+
+**/__pycache__/
+
+.pycache_store/
