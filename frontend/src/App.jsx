@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 const API_BASE = (
@@ -11,6 +11,12 @@ const TEAM_MEMBERS = [
   { name: 'Ankit Anand', role: 'Frontend Developer' },
   { name: 'Anubhav Gangwar', role: 'Backend Developer' },
   { name: 'Manjeet Kumar', role: 'AI & Testing Engineer' },
+]
+
+const MODEL_SNAPSHOT = [
+  { value: '94.2%', label: 'Validation Accuracy' },
+  { value: '< 2s', label: 'Avg Prediction Time' },
+  { value: 'Text + OCR', label: 'Prediction Modes' },
 ]
 
 function emptyResult(note = null) {
@@ -83,10 +89,13 @@ function stateToPath(activePage, mode) {
 }
 
 function App() {
+  const logoSrc = withBasePath('/assets/logo.png')
   const initialRoute = readRouteFromPath()
   const [mode, setMode] = useState(initialRoute.mode)
   const [activeNav, setActiveNav] = useState(initialRoute.activeNav)
   const [activePage, setActivePage] = useState(initialRoute.activePage)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mobileHeaderMode, setMobileHeaderMode] = useState(false)
   const [text, setText] = useState('')
   const [imageFile, setImageFile] = useState(null)
   const [imagePreview, setImagePreview] = useState('')
@@ -95,7 +104,34 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState('')
+  const topbarInnerRef = useRef(null)
+  const brandWrapRef = useRef(null)
+  const navMeasureRef = useRef(null)
   const fileInputRef = useRef(null)
+
+  useEffect(() => {
+    const nav = window.navigator
+    const connection = nav.connection || nav.mozConnection || nav.webkitConnection
+
+    const applyLowEndMode = () => {
+      const lowMemory = typeof nav.deviceMemory === 'number' && nav.deviceMemory <= 2
+      const lowCpu = typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency <= 2
+      const saveData = Boolean(connection?.saveData)
+      const effectiveType = connection?.effectiveType || ''
+      const slowNetwork = effectiveType === 'slow-2g' || effectiveType === '2g'
+      const lowEndMode = lowMemory || (lowCpu && slowNetwork) || (saveData && slowNetwork)
+
+      document.documentElement.classList.toggle('low-end-mode', lowEndMode)
+    }
+
+    applyLowEndMode()
+    connection?.addEventListener?.('change', applyLowEndMode)
+
+    return () => {
+      connection?.removeEventListener?.('change', applyLowEndMode)
+      document.documentElement.classList.remove('low-end-mode')
+    }
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -127,6 +163,96 @@ function App() {
   useLayoutEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   }, [activePage, activeNav, mode])
+
+  const evaluateHeaderMode = useCallback(() => {
+    const topbarInner = topbarInnerRef.current
+    const brandWrap = brandWrapRef.current
+    const navMeasure = navMeasureRef.current
+
+    if (!topbarInner || !brandWrap || !navMeasure) return
+
+    if (window.innerWidth <= 760) {
+      setMobileHeaderMode(true)
+      return
+    }
+
+    const availableWidth = topbarInner.clientWidth
+    const brandWidth = brandWrap.offsetWidth
+    const navWidth = navMeasure.scrollWidth
+    const mobileSwitchGapPx = 6
+    const mobileExitGapPx = 14
+    const remainingGap = availableWidth - brandWidth - navWidth
+
+    setMobileHeaderMode((current) => {
+      if (!current) {
+        return remainingGap <= mobileSwitchGapPx
+      }
+      return remainingGap <= mobileExitGapPx
+    })
+  }, [])
+
+  useLayoutEffect(() => {
+    evaluateHeaderMode()
+  }, [evaluateHeaderMode])
+
+  useEffect(() => {
+    let frameId = 0
+    const scheduleEvaluation = () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId)
+      }
+      frameId = requestAnimationFrame(() => {
+        frameId = 0
+        evaluateHeaderMode()
+      })
+    }
+
+    const handleResize = () => scheduleEvaluation()
+    window.addEventListener('resize', handleResize)
+
+    let observer = null
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => scheduleEvaluation())
+      if (topbarInnerRef.current) observer.observe(topbarInnerRef.current)
+      if (brandWrapRef.current) observer.observe(brandWrapRef.current)
+      if (navMeasureRef.current) observer.observe(navMeasureRef.current)
+    }
+
+    let isCancelled = false
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(() => {
+        if (!isCancelled) scheduleEvaluation()
+      })
+    }
+
+    return () => {
+      isCancelled = true
+      if (frameId) {
+        cancelAnimationFrame(frameId)
+      }
+      window.removeEventListener('resize', handleResize)
+      observer?.disconnect()
+    }
+  }, [evaluateHeaderMode])
+
+  useEffect(() => {
+    if (!mobileHeaderMode) {
+      setMobileMenuOpen(false)
+    }
+  }, [mobileHeaderMode])
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return
+
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') {
+        setMobileMenuOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [mobileMenuOpen])
 
   const confidence = useMemo(() => {
     if (typeof result?.prob !== 'number') return null
@@ -313,12 +439,19 @@ function App() {
     setMode(nextMode)
   }
 
+  const setRouteFromMenu = (nextPage, nextNav, nextMode = mode) => {
+    setRoute(nextPage, nextNav, nextMode)
+    setMobileMenuOpen(false)
+  }
+
   const openLandingPage = () => {
     setRoute('home', 'home', mode)
+    setMobileMenuOpen(false)
   }
 
   const openAnalyzerPage = (nextMode = 'text', navTab = 'text') => {
     setRoute('analyzer', navTab, nextMode)
+    setMobileMenuOpen(false)
   }
 
   const handleClear = () => {
@@ -335,37 +468,34 @@ function App() {
   const renderHomePage = () => (
     <>
       <section className="work-hero home-hero">
-        <div className="work-pill home-pill">Home</div>
         <div className="hero-content">
-          <h1>Detect misleading news before it spreads</h1>
+          <h1>AI-powered Fake News Detection for faster verification</h1>
           <p className="hero-text">
-            Check text and image based news with confidence score, fake indicators, and practical verification tips.
+            Analyze headlines, social posts, and screenshots with ML-based credibility scoring, confidence insights, and
+            verification guidance before sharing.
           </p>
           <div className="hero-actions">
             <button type="button" className="primary-btn page-btn hero-btn" onClick={() => openAnalyzerPage('text', 'text')}>
-              Start News Check
+              Start AI Check
             </button>
           </div>
 
           <div className="hero-highlights" aria-label="Platform highlights">
-            <span className="hero-chip">Text + Image Analysis</span>
-            <span className="hero-chip">Confidence Score</span>
-            <span className="hero-chip">Reason + Tips</span>
+            <span className="hero-chip">AI-based credibility scoring</span>
+            <span className="hero-chip">Confidence analytics</span>
+            <span className="hero-chip">Explainable results</span>
           </div>
 
-          <div className="hero-stats" aria-label="Quick stats">
-            <article className="hero-stat">
-              <strong>2</strong>
-              <span>Check Modes</span>
-            </article>
-            <article className="hero-stat">
-              <strong>Instant</strong>
-              <span>Prediction Flow</span>
-            </article>
-            <article className="hero-stat">
-              <strong>Actionable</strong>
-              <span>Trust Tips</span>
-            </article>
+          <div className="hero-snapshot">
+            <p className="hero-snapshot-title">Model Snapshot</p>
+            <div className="hero-stats" aria-label="Model Snapshot">
+              {MODEL_SNAPSHOT.map((item) => (
+                <article key={item.label} className="hero-stat">
+                  <strong>{item.value}</strong>
+                  <span>{item.label}</span>
+                </article>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -399,7 +529,7 @@ function App() {
             <article className="step-card">
               <span className="step-count">01</span>
               <h4>Choose Mode</h4>
-              <p>Select Text Check or Image Check based on the content you want to verify.</p>
+              <p>Select 📝 Text Check or 🖼️ Image Check based on the content you want to verify.</p>
             </article>
             <article className="step-card">
               <span className="step-count">02</span>
@@ -420,7 +550,7 @@ function App() {
   const renderAnalyzerPage = () => (
     <>
       <section className="work-hero" id="hero-section">
-        <div className="work-pill">{mode === 'text' ? 'Text Check' : 'Image Check'}</div>
+        <div className="work-pill">{mode === 'text' ? '📝 Text Check' : '🖼️ Image Check'}</div>
       </section>
 
       <section className="work-card" id="analyze-section">
@@ -514,7 +644,7 @@ function App() {
         {error && <p className="error-banner">{error}</p>}
 
         {showResult && (
-          <section className="result-card">
+          <section className={`result-card ${result?.result === 'REAL' ? 'result-real' : ''} ${result?.result === 'FAKE' ? 'result-fake' : ''}`}>
             {result?.result && (
               <>
                 <div className={`result-chip ${result.result === 'REAL' ? 'real' : 'fake'}`}>{result.result}</div>
@@ -522,9 +652,9 @@ function App() {
                 {confidence && (
                   <>
                     <div className="progress-wrap">
-                      <div className="progress-fill" style={{ width: `${confidence}%` }} />
+                      <div className={`progress-fill ${result.result === 'REAL' ? 'real' : 'fake'}`} style={{ width: `${confidence}%` }} />
                     </div>
-                    <p className="confidence-text">The news is {confidence}% real</p>
+                    <p className="confidence-text">Model confidence: {confidence}%</p>
                   </>
                 )}
 
@@ -625,13 +755,13 @@ function App() {
         </div>
 
         <div className="about-panel">
-          <h3>How to Submit Useful Feedback ✨</h3>
-          <ul className="team-list">
-            <li>Run a prediction from the Text Check or Image Check page.</li>
-            <li>Use Real or Fake feedback buttons after result.</li>
-            <li>Mention what looked wrong and why.</li>
-          </ul>
-        </div>
+            <h3>How to Submit Useful Feedback ✨</h3>
+            <ul className="team-list">
+            <li>Run a prediction from the 📝 Text Check or 🖼️ Image Check page.</li>
+              <li>Use Real or Fake feedback buttons after result.</li>
+              <li>Mention what looked wrong and why.</li>
+            </ul>
+          </div>
 
         <div className="about-layout feedback-layout">
           <article className="about-panel">
@@ -724,9 +854,25 @@ function App() {
               </article>
             ))}
           </div>
+          <p className="about-love-note">Made with ❤️ by Team Fake News Detection.</p>
         </div>
       </section>
     </>
+  )
+
+  const renderSocialLinks = (className = 'home-footer-socials') => (
+    <div className={className} aria-label="Social links">
+      <a className="social-link social-github" href="https://github.com/ankit-xo/FakeNewsDetection" target="_blank" rel="noreferrer" aria-label="GitHub">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 .5A11.5 11.5 0 0 0 .5 12.2c0 5.2 3.4 9.6 8 11.2.6.1.8-.3.8-.6v-2c-3.3.7-4-1.4-4-1.4-.6-1.5-1.3-1.9-1.3-1.9-1.1-.8.1-.8.1-.8 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.3 3.6 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.4-5.5-6.2 0-1.4.5-2.6 1.3-3.6-.1-.3-.6-1.6.1-3.3 0 0 1.1-.4 3.7 1.3 1.1-.3 2.2-.4 3.3-.4 1.1 0 2.2.1 3.3.4 2.6-1.7 3.7-1.3 3.7-1.3.7 1.7.2 3 .1 3.3.8 1 1.3 2.2 1.3 3.6 0 4.8-2.8 5.9-5.5 6.2.4.4.8 1 .8 2.1v3c0 .3.2.7.8.6 4.6-1.6 8-6 8-11.2A11.5 11.5 0 0 0 12 .5z" />
+        </svg>
+      </a>
+      <a className="social-link social-linkedin" href="https://www.linkedin.com" target="_blank" rel="noreferrer" aria-label="LinkedIn">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6.2 8.7H2.9V21h3.3V8.7zM4.6 7.2a1.9 1.9 0 1 0 0-3.8 1.9 1.9 0 0 0 0 3.8zM21.1 14.1c0-3.7-2-5.5-4.7-5.5-2.1 0-3 .9-3.5 1.6v-1.4H9.6V21h3.3v-6.1c0-1.6.3-3.2 2.2-3.2 1.9 0 1.9 1.8 1.9 3.3V21h3.3v-6.9z" />
+        </svg>
+      </a>
+    </div>
   )
 
   const renderHomeFooter = () => (
@@ -758,18 +904,7 @@ function App() {
           </button>
         </div>
 
-        <div className="home-footer-socials" aria-label="Social links">
-          <a className="social-link social-github" href="https://github.com/ankit-xo/FakeNewsDetection" target="_blank" rel="noreferrer" aria-label="GitHub">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 .5A11.5 11.5 0 0 0 .5 12.2c0 5.2 3.4 9.6 8 11.2.6.1.8-.3.8-.6v-2c-3.3.7-4-1.4-4-1.4-.6-1.5-1.3-1.9-1.3-1.9-1.1-.8.1-.8.1-.8 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.3 3.6 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.4-5.5-6.2 0-1.4.5-2.6 1.3-3.6-.1-.3-.6-1.6.1-3.3 0 0 1.1-.4 3.7 1.3 1.1-.3 2.2-.4 3.3-.4 1.1 0 2.2.1 3.3.4 2.6-1.7 3.7-1.3 3.7-1.3.7 1.7.2 3 .1 3.3.8 1 1.3 2.2 1.3 3.6 0 4.8-2.8 5.9-5.5 6.2.4.4.8 1 .8 2.1v3c0 .3.2.7.8.6 4.6-1.6 8-6 8-11.2A11.5 11.5 0 0 0 12 .5z" />
-            </svg>
-          </a>
-          <a className="social-link social-linkedin" href="https://www.linkedin.com" target="_blank" rel="noreferrer" aria-label="LinkedIn">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M6.2 8.7H2.9V21h3.3V8.7zM4.6 7.2a1.9 1.9 0 1 0 0-3.8 1.9 1.9 0 0 0 0 3.8zM21.1 14.1c0-3.7-2-5.5-4.7-5.5-2.1 0-3 .9-3.5 1.6v-1.4H9.6V21h3.3v-6.1c0-1.6.3-3.2 2.2-3.2 1.9 0 1.9 1.8 1.9 3.3V21h3.3v-6.9z" />
-            </svg>
-          </a>
-        </div>
+        {renderSocialLinks()}
       </div>
 
       <div className="home-footer-divider" />
@@ -778,58 +913,85 @@ function App() {
         <p className="home-footer-copy">© All rights reserved</p>
 
         <div className="home-footer-brand">
-          <span className="footer-brand-avatar">FN</span>
+          <span className="footer-brand-avatar">
+            <img src={logoSrc} alt="Fake News Detection logo" className="footer-brand-image" />
+          </span>
           <p className="footer-brand-name">Fake News Detection</p>
         </div>
 
-        <span className="home-footer-end" aria-hidden="true" />
+        <p className="home-footer-love">Made with ❤️ by Team Fake News Detection</p>
       </div>
     </footer>
   )
 
   return (
     <>
-      <header className="app-topbar">
-        <div className="brand-wrap">
-          <div className="brand-avatar">FN</div>
-          <div className="brand-text">
-            <p className="brand-name">Fake News Detection</p>
+      <header className={`app-topbar ${mobileHeaderMode ? 'mobile-mode' : ''}`}>
+        <div className="topbar-inner" ref={topbarInnerRef}>
+          <div className="brand-wrap" ref={brandWrapRef}>
+            <div className="brand-avatar">
+              <img src={logoSrc} alt="Fake News Detection logo" className="brand-avatar-image" />
+            </div>
+            <div className="brand-text">
+              <p className="brand-name">Fake News Detection</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className={`mobile-menu-toggle ${mobileHeaderMode ? 'visible' : ''} ${mobileMenuOpen ? 'open' : ''}`}
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="primary-navigation"
+            onClick={() => setMobileMenuOpen((current) => !current)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+
+          <nav id="primary-navigation" className={`top-nav ${mobileMenuOpen ? 'open' : ''}`} aria-label="Primary">
+            <button type="button" className={`nav-link ${activeNav === 'home' ? 'active' : ''}`} onClick={openLandingPage}>
+              Home
+            </button>
+            <button
+              type="button"
+              className={`nav-link ${activeNav === 'text' ? 'active' : ''}`}
+              onClick={() => openAnalyzerPage('text', 'text')}
+            >
+              Text Check
+            </button>
+            <button
+              type="button"
+              className={`nav-link ${activeNav === 'image' ? 'active' : ''}`}
+              onClick={() => openAnalyzerPage('image', 'image')}
+            >
+              Image Check
+            </button>
+            <button
+              type="button"
+              className={`nav-link ${activeNav === 'feedback' ? 'active' : ''}`}
+              onClick={() => setRouteFromMenu('feedback', 'feedback', mode)}
+            >
+              Feedback
+            </button>
+            <button
+              type="button"
+              className={`nav-link ${activeNav === 'about' ? 'active' : ''}`}
+              onClick={() => setRouteFromMenu('about', 'about', mode)}
+            >
+              About Us
+            </button>
+          </nav>
+
+          <div className="top-nav-measure" ref={navMeasureRef} aria-hidden="true">
+            <span className="nav-link">Home</span>
+            <span className="nav-link">Text Check</span>
+            <span className="nav-link">Image Check</span>
+            <span className="nav-link">Feedback</span>
+            <span className="nav-link">About Us</span>
           </div>
         </div>
-
-        <nav className="top-nav" aria-label="Primary">
-          <button type="button" className={`nav-link ${activeNav === 'home' ? 'active' : ''}`} onClick={openLandingPage}>
-            Home
-          </button>
-          <button
-            type="button"
-            className={`nav-link ${activeNav === 'text' ? 'active' : ''}`}
-            onClick={() => openAnalyzerPage('text', 'text')}
-          >
-            Text Check
-          </button>
-          <button
-            type="button"
-            className={`nav-link ${activeNav === 'image' ? 'active' : ''}`}
-            onClick={() => openAnalyzerPage('image', 'image')}
-          >
-            Image Check
-          </button>
-          <button
-            type="button"
-            className={`nav-link ${activeNav === 'feedback' ? 'active' : ''}`}
-            onClick={() => setRoute('feedback', 'feedback', mode)}
-          >
-            Feedback
-          </button>
-          <button
-            type="button"
-            className={`nav-link ${activeNav === 'about' ? 'active' : ''}`}
-            onClick={() => setRoute('about', 'about', mode)}
-          >
-            About Us
-          </button>
-        </nav>
       </header>
 
       <main className="page-shell">
