@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 const API_BASE = (
-  import.meta.env.VITE_API_BASE_URL || 'https://fake-news-detection-api.onrender.com'
+  import.meta.env.VITE_API_BASE_URL || 'https://fake-news-detection-api-8zp1.onrender.com'
 ).replace(/\/$/, '')
 
 const endpoint = (path) => `${API_BASE}${path}`

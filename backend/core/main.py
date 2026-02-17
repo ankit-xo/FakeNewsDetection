@@ -74,6 +74,10 @@ PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
 FRONTEND_DIST_DIR = os.path.join(PROJECT_ROOT, "frontend", "dist")
 FRONTEND_INDEX_PATH = os.path.join(FRONTEND_DIST_DIR, "index.html")
 FRONTEND_ASSETS_DIR = os.path.join(FRONTEND_DIST_DIR, "assets")
+FRONTEND_PUBLIC_BASE = os.getenv(
+    "FRONTEND_PUBLIC_BASE",
+    "https://ankit-xo.github.io/FakeNewsDetection",
+).rstrip("/")
 
 MODEL_CANDIDATES = [
     os.path.join(BACKEND_DIR, "models", "best_model.joblib"),
@@ -258,6 +262,18 @@ def build_prediction_payload(text: str) -> Dict[str, Any]:
     return payload
 
 
+def api_only_response_payload(requested_path: str) -> Dict[str, Any]:
+    normalized_path = requested_path if requested_path.startswith("/") else f"/{requested_path}"
+    return {
+        "status": "ok",
+        "message": "Backend API is running. Frontend is hosted on GitHub Pages.",
+        "requested_path": normalized_path,
+        "frontend_url": f"{FRONTEND_PUBLIC_BASE}/home",
+        "health_url": "/api/health",
+        "docs_url": "/docs",
+    }
+
+
 def persist_feedback(feedback_type: str, text: str) -> None:
     feedback_dir = os.path.join(BACKEND_DIR, "feedback")
     os.makedirs(feedback_dir, exist_ok=True)
@@ -390,15 +406,7 @@ def home():
     if os.path.exists(FRONTEND_INDEX_PATH):
         return FileResponse(FRONTEND_INDEX_PATH)
 
-    return JSONResponse(
-        {
-            "status": "error",
-            "message": "Frontend build not found.",
-            "how_to_run_dev": "Use React dev server at http://127.0.0.1:3000 and backend docs at http://127.0.0.1:8000/docs",
-            "how_to_build_frontend": "Run: cd frontend && npm run build",
-        },
-        status_code=503,
-    )
+    return JSONResponse(api_only_response_payload("/"), status_code=200)
 
 
 @app.get("/{full_path:path}")
@@ -409,15 +417,7 @@ def spa_fallback(full_path: str):
     if os.path.exists(FRONTEND_INDEX_PATH):
         return FileResponse(FRONTEND_INDEX_PATH)
 
-    return JSONResponse(
-        {
-            "status": "error",
-            "message": "Frontend build not found.",
-            "how_to_run_dev": "Use React dev server at http://127.0.0.1:3000 and backend docs at http://127.0.0.1:8000/docs",
-            "how_to_build_frontend": "Run: cd frontend && npm run build",
-        },
-        status_code=503,
-    )
+    return JSONResponse(api_only_response_payload(full_path), status_code=200)
 
 
 # ================= RUN =================
