@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: fake-news-detection-api
+    runtime: docker
+    region: oregon
+    plan: free
+    branch: main
+    autoDeployTrigger: commit
+    healthCheckPath: /api/health
+    envVars:
+      - key: CORS_ALLOW_ORIGINS
+        value: https://ankit-xo.github.io,http://localhost:3000,http://127.0.0.1:3000

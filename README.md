@@ -33,12 +33,14 @@ FakeNewsDetection/
 │   ├── models/                  # trained model files
 │   └── feedback/                # user feedback logs
 ├── dataset/                     # datasets (Git LFS)
+├── Dockerfile                   # Render backend container
 ├── frontend/
 │   ├── src/
 │   ├── public/
 │   ├── package.json
 │   └── vite.config.js
 ├── requirements.txt             # Python dependencies
+├── render.yaml                  # Render Blueprint config
 └── README.md
 ```
 
@@ -86,6 +88,55 @@ cd frontend
 $env:VITE_API_BASE_URL="https://your-backend-url.com"
 npm run deploy
 ```
+
+## Deploy Backend on Render (Docker)
+
+This repo includes `Dockerfile` and `render.yaml` for backend deployment.
+
+1. Push latest code to GitHub.
+2. Open Render dashboard.
+3. Click `New +` and choose one option:
+   - `Blueprint` (recommended): select repo and Render will read `render.yaml`
+   - `Web Service`: select repo and set Environment to `Docker`
+4. Recommended values in Render dashboard (manual Web Service flow):
+   - Name: `fake-news-detection-api`
+   - Runtime: `Docker`
+   - Region: `Oregon (US West)` (or nearest to your users)
+   - Branch: `main`
+   - Plan: `Free`
+   - Auto-Deploy: `On Commit`
+   - Health Check Path: `/api/health`
+   - Dockerfile Path: `./Dockerfile`
+   - Docker Context: `.`
+5. Set/verify env var in Render:
+
+```text
+CORS_ALLOW_ORIGINS=https://ankit-xo.github.io,http://localhost:3000,http://127.0.0.1:3000
+```
+
+6. Deploy and wait for build to finish.
+7. Test backend:
+   - `https://<your-render-service>.onrender.com/api/health`
+8. Re-deploy frontend with Render backend URL:
+
+macOS / Linux:
+
+```bash
+cd frontend
+VITE_API_BASE_URL=https://<your-render-service>.onrender.com npm run deploy
+```
+
+Windows PowerShell:
+
+```powershell
+cd frontend
+$env:VITE_API_BASE_URL="https://<your-render-service>.onrender.com"
+npm run deploy
+```
+
+Notes:
+- Render free plan can sleep after inactivity; first request may take time.
+- Docker image installs `tesseract-ocr`, so image prediction works on Render.
 
 ## Run Locally (macOS / Linux)
 
