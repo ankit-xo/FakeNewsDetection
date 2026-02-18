@@ -1,4 +1,3 @@
-# Python / local environment
 venv/
 __pycache__/
 *.pyc

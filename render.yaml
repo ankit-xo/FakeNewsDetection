@@ -1,4 +1,3 @@
-# Render blueprint for backend API
 services:
   - type: web
     name: fake-news-detection-api
