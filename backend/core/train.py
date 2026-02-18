@@ -1,10 +1,12 @@
-# train.py
 import os
 import sys
 
 sys.dont_write_bytecode = True
 
 import re
+import json
+from datetime import datetime, timezone
+
 import pandas as pd
 import joblib
 
@@ -29,6 +31,11 @@ TRUE_PATH = os.path.join(DATA_DIR, "True.csv")
 REAL_TEST_PATH = os.path.join(DATA_DIR, "real_test.csv")
 
 MODEL_PATH = os.path.join(MODEL_DIR, "best_model.joblib")  # backend/core/main.py compatible
+MODEL_META_PATH = os.path.join(MODEL_DIR, "model_meta.json")
+
+RANDOM_STATE = 42
+MIN_TEXT_LEN = 30
+REAL_PROB_THRESHOLD = 0.40
 
 # -------- TEXT CLEANING --------
 def clean_text(text):
@@ -62,9 +69,9 @@ else:
 df["cleaned"] = df["content"].apply(clean_text)
 
 # -------- DATA CLEANING --------
-df = df[df["cleaned"].str.len() > 30]
+df = df[df["cleaned"].str.len() > MIN_TEXT_LEN]
 df = df.drop_duplicates(subset="cleaned")
-df = shuffle(df, random_state=42)
+df = shuffle(df, random_state=RANDOM_STATE)
 
 print("📊 Total Samples:", len(df))
 print("📊 Label Distribution:\n", df["label"].value_counts())
@@ -77,7 +84,7 @@ X_train, X_test, y_train, y_test = train_test_split(
     X,
     y,
     test_size=0.20,
-    random_state=42,
+    random_state=RANDOM_STATE,
     stratify=y
 )
 
@@ -86,15 +93,17 @@ print(f"🎯 Train Size: {len(X_train)}, Test Size: {len(X_test)}")
 # -------- MODEL PIPELINE --------
 model = Pipeline([
     ("tfidf", TfidfVectorizer(
-        max_features=50000,
-        ngram_range=(1, 2),
+        max_features=70000,
+        ngram_range=(1, 1),
+        min_df=2,
         stop_words="english",
         sublinear_tf=True
     )),
     ("clf", LogisticRegression(
-        max_iter=1000,
-        class_weight="balanced",
-        n_jobs=-1
+        max_iter=1200,
+        C=0.8,
+        class_weight=None,
+        n_jobs=1
     ))
 ])
 
@@ -103,22 +112,27 @@ print("\n🧠 Training Model...")
 model.fit(X_train, y_train)
 
 # -------- EVALUATION --------
-y_train_pred = model.predict(X_train)
-y_test_pred = model.predict(X_test)
+y_train_prob = model.predict_proba(X_train)[:, 1]
+y_test_prob = model.predict_proba(X_test)[:, 1]
+y_train_pred = (y_train_prob >= REAL_PROB_THRESHOLD).astype(int)
+y_test_pred = (y_test_prob >= REAL_PROB_THRESHOLD).astype(int)
 
 train_acc = accuracy_score(y_train, y_train_pred)
 test_acc = accuracy_score(y_test, y_test_pred)
+overfit_gap = train_acc - test_acc
 
 print("\n📌 Model Performance")
 print("Train Accuracy :", round(train_acc, 4))
 print("Test Accuracy  :", round(test_acc, 4))
-print("Overfitting Gap:", round(train_acc - test_acc, 4))
+print("Overfitting Gap:", round(overfit_gap, 4))
+print("REAL Threshold :", REAL_PROB_THRESHOLD)
 
 print("\n📄 Classification Report:\n")
 print(classification_report(y_test, y_test_pred))
 
 print("📊 Confusion Matrix:")
-print(confusion_matrix(y_test, y_test_pred))
+test_confusion = confusion_matrix(y_test, y_test_pred)
+print(test_confusion)
 
 # -------- CROSS VALIDATION --------
 cv_scores = cross_val_score(
@@ -127,10 +141,11 @@ cv_scores = cross_val_score(
     y_train,
     cv=5,
     scoring="accuracy",
-    n_jobs=-1
+    n_jobs=1
 )
 
-print("\n📈 Cross Validation Accuracy:", round(cv_scores.mean(), 4))
+cv_acc = cv_scores.mean()
+print("\n📈 Cross Validation Accuracy:", round(cv_acc, 4))
 
 # -------- SAVE MODEL (IMPORTANT FIX) --------
 os.makedirs(MODEL_DIR, exist_ok=True)
@@ -140,6 +155,9 @@ print("\n✅ Model Saved At:", MODEL_PATH)
 
 # -------- REAL WORLD TEST --------
 print("\n🌍 Real World Testing...")
+
+real_world_acc = None
+real_world_confusion = None
 
 if os.path.exists(REAL_TEST_PATH):
     real_test = pd.read_csv(REAL_TEST_PATH)
@@ -151,15 +169,48 @@ if os.path.exists(REAL_TEST_PATH):
 
     if "label" in real_test.columns:
         y_real = real_test["label"]
-        y_real_pred = model.predict(real_test["cleaned"])
+        y_real_prob = model.predict_proba(real_test["cleaned"])[:, 1]
+        y_real_pred = (y_real_prob >= REAL_PROB_THRESHOLD).astype(int)
+        real_world_acc = accuracy_score(y_real, y_real_pred)
+        real_world_confusion = confusion_matrix(y_real, y_real_pred)
 
         print("🌐 Real World Accuracy:",
-              round(accuracy_score(y_real, y_real_pred), 4))
+              round(real_world_acc, 4))
+        print("🌐 Real World Confusion Matrix:")
+        print(real_world_confusion)
         print(classification_report(y_real, y_real_pred))
     else:
-        real_test["prediction"] = model.predict(real_test["cleaned"])
+        real_test["prediction"] = (model.predict_proba(real_test["cleaned"])[:, 1] >= REAL_PROB_THRESHOLD).astype(int)
         print("⚠ Labels missing, predictions generated only")
 else:
     print("⚠ real_test.csv not found")
+
+# -------- SAVE METADATA --------
+model_metadata = {
+    "model_name": "logreg_tfidf_unigram",
+    "trained_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "random_state": RANDOM_STATE,
+    "cleaning": {
+        "min_text_length": MIN_TEXT_LEN,
+        "regex_cleaning": True,
+    },
+    "thresholds": {
+        "real_probability_threshold": REAL_PROB_THRESHOLD,
+    },
+    "metrics": {
+        "train_accuracy": round(float(train_acc), 6),
+        "test_accuracy": round(float(test_acc), 6),
+        "overfitting_gap": round(float(overfit_gap), 6),
+        "cross_validation_accuracy": round(float(cv_acc), 6),
+        "test_confusion_matrix": test_confusion.tolist(),
+        "real_world_accuracy": round(float(real_world_acc), 6) if real_world_acc is not None else None,
+        "real_world_confusion_matrix": real_world_confusion.tolist() if real_world_confusion is not None else None,
+    },
+}
+
+with open(MODEL_META_PATH, "w", encoding="utf-8") as meta_file:
+    json.dump(model_metadata, meta_file, indent=2)
+
+print("✅ Model Metadata Saved At:", MODEL_META_PATH)
 
 print("\n✅ Training Completed Successfully!")

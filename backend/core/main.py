@@ -6,6 +6,7 @@ sys.dont_write_bytecode = True
 import io
 import json
 import logging
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -20,7 +21,8 @@ from pydantic import BaseModel
 
 
 # ================= CONFIG =================
-PROB_THRESHOLD = 0.50  # News with 50%+ confidence shown as REAL
+DEFAULT_PROB_THRESHOLD = 0.50
+PROB_THRESHOLD = DEFAULT_PROB_THRESHOLD  # Can be overridden by model metadata
 
 TRUSTED_SOURCES = [
     "the hindu",
@@ -82,6 +84,9 @@ FRONTEND_PUBLIC_BASE = os.getenv(
 MODEL_CANDIDATES = [
     os.path.join(BACKEND_DIR, "models", "best_model.joblib"),
 ]
+MODEL_META_CANDIDATES = [
+    os.path.join(BACKEND_DIR, "models", "model_meta.json"),
+]
 
 
 # ================= LOGGING =================
@@ -140,12 +145,56 @@ def contains_trusted_source(text: str) -> bool:
     return any(src in text for src in TRUSTED_SOURCES)
 
 
+def clean_text(text: str) -> str:
+    if not isinstance(text, str):
+        return ""
+    text = text.lower()
+    text = re.sub(r"http\S+|www\S+", " ", text)
+    text = re.sub(r"\S*@\S+", " ", text)
+    text = re.sub(r"[^a-z0-9\s]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
 def normalize_prob(prob: Any) -> Optional[float]:
     try:
         value = float(prob)
         return max(0.0, min(1.0, value))
     except Exception:
         return None
+
+
+def load_probability_threshold() -> None:
+    global PROB_THRESHOLD
+
+    for meta_path in MODEL_META_CANDIDATES:
+        if not os.path.exists(meta_path):
+            continue
+
+        try:
+            with open(meta_path, "r", encoding="utf-8") as meta_file:
+                metadata = json.load(meta_file)
+        except Exception:
+            logger.exception("Failed to read model metadata from %s", meta_path)
+            continue
+
+        raw_threshold = None
+        if isinstance(metadata, dict):
+            thresholds = metadata.get("thresholds", {})
+            if isinstance(thresholds, dict):
+                raw_threshold = thresholds.get("real_probability_threshold")
+
+        parsed_threshold = normalize_prob(raw_threshold)
+        if parsed_threshold is None:
+            logger.warning("Invalid threshold in %s, using default %.2f", meta_path, DEFAULT_PROB_THRESHOLD)
+            continue
+
+        PROB_THRESHOLD = parsed_threshold
+        logger.info("Probability threshold loaded from %s: %.2f", meta_path, PROB_THRESHOLD)
+        return
+
+    PROB_THRESHOLD = DEFAULT_PROB_THRESHOLD
+    logger.info("Probability threshold fallback to default: %.2f", PROB_THRESHOLD)
 
 
 def extract_text_from_image(file_bytes: bytes) -> str:
@@ -207,25 +256,30 @@ def build_fake_reason_text(reasons: List[str]) -> str:
 
 
 def build_prediction_payload(text: str) -> Dict[str, Any]:
-    cleaned_text = (text or "").strip()
+    raw_text = (text or "").strip()
+    model_text = clean_text(raw_text)
 
     payload: Dict[str, Any] = {
         "result": None,
         "prob": None,
-        "input_text": cleaned_text,
+        "input_text": raw_text,
         "fake_reasons": None,
         "fake_reasons_list": [],
         "verification_tips": [],
         "note": None,
     }
 
-    if not cleaned_text:
+    if not raw_text:
         payload["note"] = "Please enter news text."
         return payload
 
-    if contains_trusted_source(cleaned_text):
+    if contains_trusted_source(raw_text):
         payload["result"] = "REAL"
         payload["prob"] = 0.75
+        return payload
+
+    if not model_text:
+        payload["note"] = "Please enter meaningful text."
         return payload
 
     if model is None:
@@ -235,7 +289,7 @@ def build_prediction_payload(text: str) -> Dict[str, Any]:
     probability: Optional[float] = None
     if hasattr(model, "predict_proba"):
         try:
-            probability = normalize_prob(model.predict_proba([cleaned_text])[0][1])
+            probability = normalize_prob(model.predict_proba([model_text])[0][1])
         except Exception:
             logger.exception("Failed while calculating probability")
 
@@ -243,7 +297,7 @@ def build_prediction_payload(text: str) -> Dict[str, Any]:
         label = "REAL" if probability >= PROB_THRESHOLD else "FAKE"
     else:
         try:
-            prediction = int(model.predict([cleaned_text])[0])
+            prediction = int(model.predict([model_text])[0])
             label = "REAL" if prediction == 1 else "FAKE"
         except Exception:
             logger.exception("Prediction failed")
@@ -254,7 +308,7 @@ def build_prediction_payload(text: str) -> Dict[str, Any]:
     payload["prob"] = probability
 
     if label == "FAKE":
-        reasons = find_fake_reasons(cleaned_text)
+        reasons = find_fake_reasons(raw_text)
         payload["fake_reasons_list"] = reasons
         payload["fake_reasons"] = build_fake_reason_text(reasons)
         payload["verification_tips"] = VERIFICATION_TIPS
@@ -297,6 +351,9 @@ def persist_feedback(feedback_type: str, text: str) -> None:
 
     with open(feedback_file, "w", encoding="utf-8") as file:
         json.dump(feedback_data, file, indent=2)
+
+
+load_probability_threshold()
 
 
 # ================= API ROUTES =================
