@@ -4,11 +4,21 @@
 ![GitHub](https://img.shields.io/badge/GitHub-ankit--xo-black?style=for-the-badge&logo=github)
 ![Project](https://img.shields.io/badge/Project-FakeNewsDetection-success?style=for-the-badge)
 
-A full-stack final year project to detect whether news content is likely **REAL** or **FAKE** using text classification and image OCR.
+A full-stack project to detect whether news content is likely **REAL** or **FAKE** using text classification and image OCR.
 
 ## Live Demo
 
-- Frontend (GitHub Pages): `https://ankit-xo.github.io/FakeNewsDetection/home`
+- Website (GitHub Pages): `https://ankit-xo.github.io/FakeNewsDetection/home`
+
+## Website Screenshots
+
+| Home | Text Check |
+|---|---|
+| ![Home Page](Pic/Home.png) | ![Text Check Page](Pic/text-check.png) |
+
+| Image Check | About |
+|---|---|
+| ![Image Check Page](Pic/image-check.png) | ![About Page](Pic/about.png) |
 
 
 ## Project Highlights
@@ -186,7 +196,7 @@ CORS_ALLOW_ORIGINS=https://ankit-xo.github.io,http://localhost:3000,http://127.0
 ```
 
 5. Deploy and verify:
-   - `https://<your-render-service>.onrender.com/api/health`
+   - `https://fake-news-detection-api-8zp1.onrender.com`
 
 ## API Endpoints
 
@@ -195,20 +205,6 @@ CORS_ALLOW_ORIGINS=https://ankit-xo.github.io,http://localhost:3000,http://127.0
 - `POST /api/predict-image`
 - `POST /api/feedback`
 
-## Testing
-
-Use the full QA checklist in `Testing.md`.
-
-Executed test evidence (Expected vs Actual + PASS/FAIL) is also included in `Testing.md` under:
-- `Executed Test Evidence (Final Demo Run)`
-
-Recommended quick checks before final submission:
-
-```bash
-cd frontend
-npm run lint
-npm run build
-```
 
 ## Notes
 
