@@ -1587,12 +1587,12 @@ html.low-end-mode .btn-spinner {
   align-self: center;
   margin: 12px auto 0;
   width: fit-content;
-  min-width: 124px;
-  min-height: 40px;
-  padding: 9px 18px;
+  min-width: 148px;
+  min-height: 46px;
+  padding: 11px 24px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 999px;
-  font-size: 0.86rem;
+  font-size: 0.93rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   box-shadow: 0 6px 12px rgba(37, 99, 235, 0.18);
@@ -2477,7 +2477,7 @@ html.low-end-mode .btn-spinner {
 
   .predict-btn {
     width: min(320px, 100%);
-    min-height: 44px;
+    min-height: 48px;
   }
 
   .feature-grid,
