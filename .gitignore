@@ -3,6 +3,11 @@ __pycache__/
 *.pyc
 .DS_Store
 .vscode/
+*.log
+
+# Secrets / local config
+.env
+.env.*
 
 # Frontend artifacts
 frontend/node_modules/
@@ -11,3 +16,11 @@ frontend/dist/
 **/__pycache__/
 
 .pycache_store/
+
+# Local-only docs and runtime files
+Report.md
+Testing.md
+backend_server.log
+
+# User-generated feedback data (contains potentially sensitive text)
+backend/feedback/feedback_log.json
