@@ -14,11 +14,11 @@ A full-stack project to detect whether news content is likely **REAL** or **FAKE
 
 | Home | Text Check |
 |---|---|
-| ![Home Page](Pic/Home.png) | ![Text Check Page](Pic/text-check.png) |
+| ![Home Page](docs/screenshots/home.png) | ![Text Check Page](docs/screenshots/text-check.png) |
 
 | Image Check | About |
 |---|---|
-| ![Image Check Page](Pic/image-check.png) | ![About Page](Pic/about.png) |
+| ![Image Check Page](docs/screenshots/image-check.png) | ![About Page](docs/screenshots/about.png) |
 
 
 ## Project Highlights
@@ -79,6 +79,8 @@ FakeNewsDetection/
 │   ├── src/
 │   ├── package.json
 │   └── vite.config.js
+├── docs/
+│   └── screenshots/             # README website screenshots
 ├── Dockerfile                   # Render backend container
 ├── render.yaml                  # Render Blueprint config
 ├── Testing.md                   # QA checklist and test cases
