@@ -6,18 +6,224 @@ const API_BASE = (
 ).replace(/\/$/, '')
 
 const endpoint = (path) => `${API_BASE}${path}`
+const REQUEST_TIMEOUT_MS = 15000
+
+function extractServerMessage(payload) {
+  if (!payload || typeof payload !== 'object') return ''
+
+  const directCandidates = [payload.message, payload.note, payload.error]
+  const directText = directCandidates.find((item) => typeof item === 'string' && item.trim().length > 0)
+  if (directText) return directText.trim()
+
+  if (typeof payload.detail === 'string' && payload.detail.trim().length > 0) {
+    return payload.detail.trim()
+  }
+
+  if (Array.isArray(payload.detail)) {
+    const firstArrayText = payload.detail
+      .map((item) => {
+        if (typeof item === 'string') return item
+        if (!item || typeof item !== 'object') return ''
+        if (typeof item.msg === 'string') return item.msg
+        if (typeof item.message === 'string') return item.message
+        if (typeof item.error === 'string') return item.error
+        return ''
+      })
+      .find((item) => item.trim().length > 0)
+
+    if (firstArrayText) return firstArrayText.trim()
+  }
+
+  if (payload.detail && typeof payload.detail === 'object') {
+    const detailObjectCandidates = [payload.detail.msg, payload.detail.message, payload.detail.error]
+    const detailObjectText = detailObjectCandidates.find((item) => typeof item === 'string' && item.trim().length > 0)
+    if (detailObjectText) return detailObjectText.trim()
+  }
+
+  return ''
+}
+
+function resolveApiErrorMessage(status, context, serverMessage = '') {
+  if (serverMessage) return serverMessage
+
+  if (status === 400) {
+    if (context === 'predict-image') {
+      return 'Invalid image input. Please upload a clear PNG/JPG/WEBP file and try again.'
+    }
+    return 'Invalid request. Please review your input and try again.'
+  }
+
+  if (status === 413) {
+    return 'Input is too large. Please reduce text/image size and retry.'
+  }
+
+  if (status === 415) {
+    return 'Unsupported file type. Please upload PNG, JPG, or WEBP.'
+  }
+
+  if (status === 422) {
+    return 'Input format is not valid. Please check required fields and submit again.'
+  }
+
+  if (status === 429) {
+    return 'Too many requests right now. Please wait a few seconds and try again.'
+  }
+
+  if (status >= 500) {
+    return 'Server error occurred. Please retry in a moment.'
+  }
+
+  if (context === 'feedback') {
+    return 'Feedback could not be submitted. Please try again.'
+  }
+
+  return 'Request failed. Please try again.'
+}
+
+function resolveNetworkErrorMessage(error, context) {
+  if (error?.name === 'AbortError') {
+    return 'Request timed out. Please retry.'
+  }
+
+  if (context === 'feedback') {
+    return 'Unable to submit feedback right now. Check connection and retry.'
+  }
+
+  if (context === 'health') {
+    return 'Health check failed. API may be unreachable.'
+  }
+
+  return 'Unable to connect to backend. Check connection and retry.'
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    })
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
+async function safeJson(response) {
+  try {
+    return await response.json()
+  } catch {
+    return {}
+  }
+}
 
 const TEAM_MEMBERS = [
-  { name: 'Ankit Anand', role: 'Frontend Developer' },
+  { name: 'Ankit Anand', role: 'Full Stack Developer', lead: true },
   { name: 'Anubhav Gangwar', role: 'Backend Developer' },
-  { name: 'Manjeet Kumar', role: 'AI & Testing Engineer' },
+  { name: 'Manjeet Kumar', role: 'Software Testing' },
 ]
 
 const MODEL_SNAPSHOT = [
-  { value: '94.2%', label: 'Validation Accuracy' },
-  { value: '< 2s', label: 'Avg Prediction Time' },
-  { value: 'Text + OCR', label: 'Prediction Modes' },
+  { value: '98.75%', label: 'Validation Accuracy' },
+  { value: '98.69%', label: '5-Fold CV Accuracy' },
+  { value: '84.79%', label: 'Real-world Accuracy' },
+  { value: '38.8K', label: 'Clean Training Samples' },
+  { value: '18 Feb 2026', label: 'Last Trained' },
 ]
+
+const ABOUT_MODEL_CREDIBILITY = [
+  { value: '98.75%', label: 'Validation Accuracy' },
+  { value: '98.69%', label: 'Cross-Validation' },
+  { value: '84.79%', label: 'Real-world Accuracy' },
+  { value: '0.30%', label: 'Overfitting Gap' },
+  { value: '18 Feb 2026', label: 'Last Trained' },
+]
+
+const HERO_MODEL_SNAPSHOT = [
+  { value: '98.75%', label: 'Validation Accuracy' },
+  { value: '84.79%', label: 'Real-world Accuracy' },
+  { value: '89', label: 'Fake->Real Errors (benchmark)' },
+]
+
+const HISTORY_STORAGE_KEY = 'fake-news-history-v1'
+
+const REAL_SAMPLE_NEWS_TEXTS = [
+  'District administration released an official flood advisory and opened relief camps in low-lying areas.',
+  'Election office published updated voter turnout data on the state portal after phase two polling.',
+  'Meteorological department forecast heavy rainfall for coastal districts and issued orange alert for 48 hours.',
+  'Health department started a free vaccination drive at government hospitals from Monday to Friday.',
+  'University examination cell postponed semester exams by one week through a signed circular.',
+  'Central bank kept policy rates unchanged and shared the decision in its scheduled monetary briefing.',
+  'Space agency completed a successful payload test and published mission details in a press note.',
+  'Railway division announced revised train timings due to platform maintenance during the weekend.',
+  'City police confirmed recovery of a missing child and thanked citizens for verified leads.',
+  'Supreme Court uploaded the next hearing schedule in the official cause list for public access.',
+  'Municipal corporation inaugurated a new water treatment unit to improve local drinking water supply.',
+  'Transport department launched a road safety campaign and increased highway patrolling this month.',
+  'Parliament passed the amendment bill after debate and voting in both houses.',
+  'State board declared class 12 results on its official website at the announced time.',
+  'Agriculture ministry released updated crop support prices for the upcoming procurement season.',
+  'Power utility announced a planned maintenance outage for selected areas between 1 AM and 4 AM.',
+  'Public works department opened a repaired bridge after structural safety clearance.',
+  'Airport authority issued fog-related advisory and asked passengers to check live flight status.',
+  'National highway agency opened an additional service lane to reduce peak-hour congestion.',
+  'Census office enabled a correction window for submitted forms with identity proof verification.',
+  'Telecom regulator extended digital KYC submission deadline and notified operators formally.',
+  'Bank notified customers about branch relocation effective next month through SMS and website notice.',
+  'Fire department conducted a mock evacuation drill in a multi-storey market complex.',
+  'University published annual placement statistics with recruiter list and salary ranges.',
+  'Election commission clarified circulating booth-change rumors and shared the official booth lookup link.',
+]
+
+const FAKE_SAMPLE_NEWS_TEXTS = [
+  'Viral post claims the moon will turn green tonight and anyone who watches it will become lucky forever.',
+  'Forwarded message says all ATM notes will stop working after midnight unless people register immediately.',
+  'Social post promises instant government cash reward through an unknown short link without any official source.',
+  'Message says eating one herbal leaf can permanently cure diabetes in two days with zero medical evidence.',
+  'Screenshot claims all board exams are canceled permanently, but no education notice is attached.',
+  'Audio clip alleges vaccines contain secret tracking chips controlled by satellites.',
+  'Post says a famous actor was jailed last night, but provides no police report or news source.',
+  'Forward says nationwide internet shutdown starts tomorrow, yet no telecom or ministry advisory exists.',
+  'Old bridge-collapse photo is reshared as today’s disaster without date or location verification.',
+  'Post claims river water turned red due to poison dumping, but no lab or authority report is shown.',
+  'Message says courts banned social media use after 10 PM, with no legal order reference.',
+  'Viral text claims train tickets are free for everyone this week if they share the post 10 times.',
+  'Forward warns a solar eclipse causes instant blindness in minutes, presented without scientific evidence.',
+  'Post says drinking hot water every hour can kill every virus regardless of infection.',
+  'Fake graphic claims a cash bonus is available only to people who reshare a random message.',
+  'Screenshot says petrol is available at extremely low price today only, without any official notification.',
+  'Message claims private schools must admit all students automatically without documents this year.',
+  'Post alleges city tap water has sleeping medicine mixed by unknown groups.',
+  'Forward claims exam papers leaked everywhere but shows no verified proof or authority statement.',
+  'Viral post says all SIM cards will be blocked unless users enter OTP on an unknown page.',
+  'Message promises old coins can be sold for huge guaranteed profit through unofficial agents.',
+  'Conspiracy post claims satellites discovered a hidden city and government is suppressing the evidence.',
+  'Message predicts an earthquake at exact minute and asks residents to leave homes immediately.',
+  'Post claims tax department waived all penalties this week though no official circular exists.',
+  'Screenshot promotes an app that claims to generate legal identity cards instantly without verification.',
+]
+
+const SAMPLE_NEWS_TEXTS = [...REAL_SAMPLE_NEWS_TEXTS, ...FAKE_SAMPLE_NEWS_TEXTS]
+
+const BASE_FACT_CHECK_TIPS = [
+  'Check source domain credibility and verify the original publisher.',
+  'Verify publish date, location, and whether old content is being reposted as new.',
+  'Cross-check the same claim on at least two trusted outlets.',
+]
+
+const FALLBACK_REASONS = {
+  REAL: [
+    'Language patterns are closer to factual reporting.',
+    'No strong manipulation markers were detected.',
+    'Overall signal supports a likely authentic claim.',
+  ],
+  FAKE: [
+    'Claim style appears sensational or weakly sourced.',
+    'Credibility signals are lower than expected for verified reporting.',
+    'Pattern looks similar to misinformation-style content.',
+  ],
+}
 
 function emptyResult(note = null) {
   return {
@@ -29,6 +235,165 @@ function emptyResult(note = null) {
     verification_tips: [],
     note,
   }
+}
+
+function uniqueItems(items) {
+  const seen = new Set()
+  const cleaned = []
+
+  for (const item of items) {
+    const text = String(item || '').replace(/\s+/g, ' ').trim()
+    if (!text) continue
+    const key = text.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    cleaned.push(text)
+  }
+
+  return cleaned
+}
+
+function parseReasonText(reasonText) {
+  if (!reasonText) return []
+  return String(reasonText)
+    .split(/[.\n;]+/g)
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
+function buildTopReasons(resultPayload, mode, confidence) {
+  if (!resultPayload?.result) return []
+
+  const reasons = []
+  const resultType = resultPayload.result === 'FAKE' ? 'FAKE' : 'REAL'
+
+  if (Array.isArray(resultPayload.fake_reasons_list)) {
+    reasons.push(...resultPayload.fake_reasons_list)
+  }
+  reasons.push(...parseReasonText(resultPayload.fake_reasons))
+
+  if (confidence) {
+    if (resultType === 'REAL') {
+      reasons.unshift(`Confidence score is ${confidence}%, indicating stronger reliability signals.`)
+    } else {
+      reasons.unshift(`Confidence score is ${confidence}%, indicating weak credibility signals.`)
+    }
+  }
+
+  if (mode === 'image' && resultType === 'FAKE') {
+    reasons.push('Image-extracted text appears inconsistent with reliable reporting style.')
+  }
+
+  reasons.push(...FALLBACK_REASONS[resultType])
+
+  return uniqueItems(reasons).slice(0, 3)
+}
+
+function buildFactCheckTips(resultPayload, mode) {
+  const dynamicTips = Array.isArray(resultPayload?.verification_tips) ? resultPayload.verification_tips : []
+  const modeTip =
+    mode === 'image'
+      ? 'Run a reverse image search to detect reused, edited, or out-of-context visuals.'
+      : 'Search the exact headline text on trusted sources to validate context.'
+
+  return uniqueItems([modeTip, ...dynamicTips, ...BASE_FACT_CHECK_TIPS]).slice(0, 5)
+}
+
+function readHistory() {
+  if (typeof window === 'undefined') return []
+
+  try {
+    const raw = window.localStorage.getItem(HISTORY_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.slice(0, 5)
+  } catch {
+    return []
+  }
+}
+
+function writeHistory(items) {
+  if (typeof window === 'undefined') return
+
+  try {
+    window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(items.slice(0, 5)))
+  } catch {
+    // Ignore storage failures on restricted browsers.
+  }
+}
+
+function formatHistoryTime(timestamp) {
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return 'Recent'
+
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+function createDemoImageFile() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 1280
+  canvas.height = 720
+
+  const ctx = canvas.getContext('2d')
+  if (!ctx) {
+    return Promise.reject(new Error('Canvas not supported'))
+  }
+
+  ctx.fillStyle = '#f8fbff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+  ctx.fillStyle = '#1e3a8a'
+  ctx.font = '700 56px "Plus Jakarta Sans", sans-serif'
+  ctx.fillText('Breaking Claim Screenshot', 72, 110)
+
+  ctx.fillStyle = '#475569'
+  ctx.font = '500 36px "Plus Jakarta Sans", sans-serif'
+  ctx.fillText('Post says "Miracle cure found in 24 hours"', 72, 190)
+  ctx.fillText('No doctor names, no study links, asks to forward now.', 72, 245)
+
+  ctx.fillStyle = '#dc2626'
+  ctx.font = '700 42px "Plus Jakarta Sans", sans-serif'
+  ctx.fillText('VERIFY BEFORE SHARING', 72, 330)
+
+  ctx.strokeStyle = '#d0def7'
+  ctx.lineWidth = 4
+  ctx.strokeRect(52, 52, canvas.width - 104, canvas.height - 104)
+
+  ctx.fillStyle = '#1f2937'
+  ctx.font = '500 30px "Plus Jakarta Sans", sans-serif'
+  ctx.fillText('Sample demo image generated by Fake News Detection app', 72, 645)
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('Failed to create demo image'))
+          return
+        }
+
+        resolve(new File([blob], 'demo-news-image.png', { type: 'image/png' }))
+      },
+      'image/png',
+      0.9,
+    )
+  })
+}
+
+function pickSampleNews(currentText = '') {
+  if (!SAMPLE_NEWS_TEXTS.length) return ''
+  if (SAMPLE_NEWS_TEXTS.length === 1) return SAMPLE_NEWS_TEXTS[0]
+
+  const normalizedCurrent = String(currentText || '').trim()
+  const filtered = SAMPLE_NEWS_TEXTS.filter((item) => item !== normalizedCurrent)
+  const source = filtered.length ? filtered : SAMPLE_NEWS_TEXTS
+  const index = Math.floor(Math.random() * source.length)
+  return source[index]
 }
 
 
@@ -90,6 +455,8 @@ function stateToPath(activePage, mode) {
 
 function App() {
   const logoSrc = withBasePath('/assets/logo.png')
+  const logoWebpSrc = withBasePath('/assets/logo.webp')
+  const architectureSrc = withBasePath('/assets/architecture-diagram.svg')
   const initialRoute = readRouteFromPath()
   const [mode, setMode] = useState(initialRoute.mode)
   const [activeNav, setActiveNav] = useState(initialRoute.activeNav)
@@ -104,6 +471,17 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState('')
+  const [demoImageLoading, setDemoImageLoading] = useState(false)
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
+  const [retryContext, setRetryContext] = useState(null)
+  const [retryFeedbackType, setRetryFeedbackType] = useState('')
+  const [historyItems, setHistoryItems] = useState(() => readHistory())
+  const [apiHealth, setApiHealth] = useState({
+    status: 'checking',
+    modelLoaded: false,
+    checkedAt: null,
+  })
+  const [healthChecking, setHealthChecking] = useState(false)
   const topbarInnerRef = useRef(null)
   const brandWrapRef = useRef(null)
   const navMeasureRef = useRef(null)
@@ -254,10 +632,61 @@ function App() {
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [mobileMenuOpen])
 
+  const checkApiHealth = useCallback(async () => {
+    setHealthChecking(true)
+
+    try {
+      const response = await fetchWithTimeout(endpoint('/api/health'), {}, 8000)
+      if (!response.ok) {
+        throw new Error('Health check failed')
+      }
+
+      const data = await safeJson(response)
+      setApiHealth({
+        status: 'online',
+        modelLoaded: Boolean(data.model_loaded),
+        checkedAt: new Date().toISOString(),
+      })
+    } catch {
+      setApiHealth({
+        status: 'offline',
+        modelLoaded: false,
+        checkedAt: new Date().toISOString(),
+      })
+    } finally {
+      setHealthChecking(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void checkApiHealth()
+    const timer = window.setInterval(() => {
+      void checkApiHealth()
+    }, 120000)
+
+    return () => window.clearInterval(timer)
+  }, [checkApiHealth])
+
   const confidence = useMemo(() => {
     if (typeof result?.prob !== 'number') return null
     return (result.prob * 100).toFixed(2)
   }, [result])
+
+  const topReasons = useMemo(() => buildTopReasons(result, mode, confidence), [result, mode, confidence])
+
+  const factCheckTips = useMemo(() => buildFactCheckTips(result, mode), [result, mode])
+
+  const apiHealthLabel = useMemo(() => {
+    if (apiHealth.status === 'online') {
+      return apiHealth.modelLoaded ? 'API Online • Model Ready' : 'API Online • Model Loading'
+    }
+
+    if (apiHealth.status === 'offline') {
+      return 'API Offline'
+    }
+
+    return 'Checking API...'
+  }, [apiHealth])
 
   const textStats = useMemo(() => {
     const trimmed = text.trim()
@@ -267,11 +696,48 @@ function App() {
     }
   }, [text])
 
-  const handleTextSubmit = async (event) => {
-    event.preventDefault()
+  const appendHistory = (payload, predictionMode, fallbackInput = '') => {
+    if (!payload?.result) return
 
-    if (!text.trim()) {
+    const normalizedInput = String(payload.input_text || fallbackInput || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    const excerpt = normalizedInput
+      ? `${normalizedInput.slice(0, 110)}${normalizedInput.length > 110 ? '...' : ''}`
+      : predictionMode === 'image'
+        ? 'Image input analyzed'
+        : 'Text input analyzed'
+
+    const entry = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
+      mode: predictionMode,
+      result: payload.result,
+      confidence: typeof payload.prob === 'number' ? Number((payload.prob * 100).toFixed(2)) : null,
+      excerpt,
+      checkedAt: new Date().toISOString(),
+    }
+
+    setHistoryItems((current) => {
+      const deduped = [
+        entry,
+        ...current.filter(
+          (item) => !(item.mode === entry.mode && item.result === entry.result && item.excerpt === entry.excerpt),
+        ),
+      ]
+      const next = deduped.slice(0, 5)
+      writeHistory(next)
+      return next
+    })
+  }
+
+  const runTextPrediction = async () => {
+    const cleanedText = text.trim()
+    setRetryContext(null)
+    setRetryFeedbackType('')
+
+    if (!cleanedText) {
       setResult(emptyResult('Please enter news text.'))
+      setError('')
       return
     }
 
@@ -279,32 +745,43 @@ function App() {
     setError('')
 
     try {
-      const response = await fetch(endpoint('/api/predict'), {
+      const response = await fetchWithTimeout(endpoint('/api/predict'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text: cleanedText }),
       })
 
-      const data = await response.json()
+      const data = await safeJson(response)
+      if (!response.ok) {
+        setResult(null)
+        setError(resolveApiErrorMessage(response.status, 'predict-text', extractServerMessage(data)))
+        setRetryContext('predict-text')
+        return
+      }
+
       setResult(data)
       setFeedback('')
-      if (!response.ok) {
-        setError(data.note || 'Prediction failed.')
-      }
-    } catch {
-      setError('Unable to connect to backend.')
+      setError('')
+      setRetryContext(null)
+      appendHistory(data, 'text', cleanedText)
+    } catch (requestError) {
+      setResult(null)
+      setError(resolveNetworkErrorMessage(requestError, 'predict-text'))
+      setRetryContext('predict-text')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleImageSubmit = async (event) => {
-    event.preventDefault()
+  const runImagePrediction = async () => {
+    setRetryContext(null)
+    setRetryFeedbackType('')
 
     if (!imageFile) {
       setResult(emptyResult('Please upload an image first.'))
+      setError('')
       return
     }
 
@@ -315,32 +792,52 @@ function App() {
     formData.append('image', imageFile)
 
     try {
-      const response = await fetch(endpoint('/api/predict-image'), {
+      const response = await fetchWithTimeout(endpoint('/api/predict-image'), {
         method: 'POST',
         body: formData,
       })
 
-      const data = await response.json()
+      const data = await safeJson(response)
+      if (!response.ok) {
+        setResult(null)
+        setError(resolveApiErrorMessage(response.status, 'predict-image', extractServerMessage(data)))
+        setRetryContext('predict-image')
+        return
+      }
+
       setResult(data)
       setFeedback('')
       if (data.input_text) {
         setText(data.input_text)
       }
-
-      if (!response.ok) {
-        setError(data.note || 'Image prediction failed.')
-      }
-    } catch {
-      setError('Unable to connect to backend.')
+      setError('')
+      setRetryContext(null)
+      appendHistory(data, 'image', data.input_text || imageFile.name)
+    } catch (requestError) {
+      setResult(null)
+      setError(resolveNetworkErrorMessage(requestError, 'predict-image'))
+      setRetryContext('predict-image')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleTextSubmit = (event) => {
+    event.preventDefault()
+    void runTextPrediction()
+  }
+
+  const handleImageSubmit = (event) => {
+    event.preventDefault()
+    void runImagePrediction()
   }
 
   const setImageFromFile = (file) => {
     if (!file) return
     if (!file.type?.startsWith('image/')) {
       setError('Please upload a valid image file.')
+      setRetryContext(null)
+      setRetryFeedbackType('')
       return
     }
 
@@ -349,6 +846,8 @@ function App() {
     }
 
     setError('')
+    setRetryContext(null)
+    setRetryFeedbackType('')
     setImageFile(file)
     setImagePreview(URL.createObjectURL(file))
   }
@@ -400,16 +899,63 @@ function App() {
     setImageFile(null)
   }
 
+  const loadTextDemo = () => {
+    openAnalyzerPage('text', 'text')
+    clearImage()
+    setResult(null)
+    setError('')
+    setRetryContext(null)
+    setRetryFeedbackType('')
+    setFeedback('')
+    setText((current) => pickSampleNews(current))
+  }
+
+  const loadImageDemo = async () => {
+    openAnalyzerPage('image', 'image')
+    setResult(null)
+    setError('')
+    setRetryContext(null)
+    setRetryFeedbackType('')
+    setFeedback('')
+    setText('')
+
+    setDemoImageLoading(true)
+    try {
+      const demoFile = await createDemoImageFile()
+      setImageFromFile(demoFile)
+
+      if (fileInputRef.current && typeof DataTransfer !== 'undefined') {
+        const transfer = new DataTransfer()
+        transfer.items.add(demoFile)
+        fileInputRef.current.files = transfer.files
+      }
+    } catch {
+      setError('Unable to load demo image.')
+      setRetryContext(null)
+      setRetryFeedbackType('')
+    } finally {
+      setDemoImageLoading(false)
+    }
+  }
+
   const handleFeedback = async (type) => {
+    if (feedbackSubmitting || loading) return
     const feedbackText = result?.input_text || text
 
     if (!feedbackText?.trim()) {
       setError('No prediction available for feedback.')
+      setRetryContext(null)
+      setRetryFeedbackType('')
       return
     }
 
+    setFeedbackSubmitting(true)
+    setError('')
+    setRetryContext(null)
+    setRetryFeedbackType(type)
+
     try {
-      const response = await fetch(endpoint('/api/feedback'), {
+      const response = await fetchWithTimeout(endpoint('/api/feedback'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -420,17 +966,48 @@ function App() {
         }),
       })
 
-      const data = await response.json()
+      const data = await safeJson(response)
       if (!response.ok) {
-        setError(data.message || 'Feedback failed.')
+        setError(resolveApiErrorMessage(response.status, 'feedback', extractServerMessage(data)))
+        setRetryContext('feedback')
+        setRetryFeedbackType(type)
         return
       }
 
       setFeedback(type)
       setError('')
-    } catch {
-      setError('Unable to submit feedback.')
+      setRetryContext(null)
+      setRetryFeedbackType('')
+    } catch (requestError) {
+      setError(resolveNetworkErrorMessage(requestError, 'feedback'))
+      setRetryContext('feedback')
+      setRetryFeedbackType(type)
+    } finally {
+      setFeedbackSubmitting(false)
     }
+  }
+
+  const retryFailedRequest = () => {
+    if (loading || feedbackSubmitting || !retryContext) return
+
+    if (retryContext === 'predict-text') {
+      void runTextPrediction()
+      return
+    }
+
+    if (retryContext === 'predict-image') {
+      void runImagePrediction()
+      return
+    }
+
+    if (retryContext === 'feedback' && retryFeedbackType) {
+      void handleFeedback(retryFeedbackType)
+    }
+  }
+
+  const clearHistory = () => {
+    setHistoryItems([])
+    writeHistory([])
   }
 
   const setRoute = (nextPage, nextNav, nextMode = mode) => {
@@ -452,6 +1029,9 @@ function App() {
   const openAnalyzerPage = (nextMode = 'text', navTab = 'text') => {
     setRoute('analyzer', navTab, nextMode)
     setMobileMenuOpen(false)
+    setError('')
+    setRetryContext(null)
+    setRetryFeedbackType('')
   }
 
   const handleClear = () => {
@@ -460,10 +1040,13 @@ function App() {
     setResult(null)
     setFeedback('')
     setError('')
+    setRetryContext(null)
+    setRetryFeedbackType('')
     openAnalyzerPage('text', 'text')
   }
 
   const showResult = Boolean(result?.result || result?.note)
+  const retryButtonLabel = retryContext === 'feedback' ? 'Retry Feedback' : 'Retry Prediction'
 
   const renderHomePage = () => (
     <>
@@ -476,21 +1059,21 @@ function App() {
           </p>
           <div className="hero-actions">
             <button type="button" className="primary-btn page-btn hero-btn" onClick={() => openAnalyzerPage('text', 'text')}>
-              Start AI Check
+              🚀 Start AI Check
             </button>
           </div>
 
           <div className="hero-highlights" aria-label="Platform highlights">
-            <span className="hero-chip">AI-based credibility scoring</span>
-            <span className="hero-chip">Confidence analytics</span>
-            <span className="hero-chip">Explainable results</span>
+            <span className="hero-chip">🧠 AI-based credibility scoring</span>
+            <span className="hero-chip">📊 Confidence analytics</span>
+            <span className="hero-chip">🔍 Explainable results</span>
           </div>
 
           <div className="hero-snapshot">
-            <p className="hero-snapshot-title">Model Snapshot</p>
+            <p className="hero-snapshot-title">📌 Model Snapshot</p>
             <div className="hero-stats" aria-label="Model Snapshot">
-              {MODEL_SNAPSHOT.map((item) => (
-                <article key={item.label} className="hero-stat">
+              {HERO_MODEL_SNAPSHOT.map((item) => (
+                <article key={`hero-${item.label}`} className="hero-stat">
                   <strong>{item.value}</strong>
                   <span>{item.label}</span>
                 </article>
@@ -502,7 +1085,7 @@ function App() {
 
       <section className="info-card home-info-card">
         <div className="page-intro">
-          <h2>How This Platform Helps</h2>
+          <h2>✨ How This Platform Helps</h2>
           <p>
             This project helps users quickly evaluate suspicious news content and make informed decisions before sharing.
           </p>
@@ -524,25 +1107,37 @@ function App() {
         </div>
 
         <div className="home-steps">
-          <h3>Quick Start in 3 Steps</h3>
+          <h3>🚦 Quick Start in 3 Steps</h3>
           <div className="steps-grid">
             <article className="step-card">
               <span className="step-count">01</span>
-              <h4>Choose Mode</h4>
+              <h4>🎛️ Choose Mode</h4>
               <p>Select 📝 Text Check or 🖼️ Image Check based on the content you want to verify.</p>
             </article>
             <article className="step-card">
               <span className="step-count">02</span>
-              <h4>Run Prediction</h4>
+              <h4>⚡ Run Prediction</h4>
               <p>Submit your input and get model output with confidence in a few seconds.</p>
             </article>
             <article className="step-card">
               <span className="step-count">03</span>
-              <h4>Review Tips</h4>
+              <h4>🧾 Review Tips</h4>
               <p>Read reasons and verification tips before you trust or share that news.</p>
             </article>
           </div>
         </div>
+
+        <section className="model-card-block" aria-label="Model card">
+          <h3>🧠 Model Card</h3>
+          <div className="model-card-grid">
+            {MODEL_SNAPSHOT.map((item) => (
+              <article key={`model-card-${item.label}`} className="model-card-item">
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
       </section>
     </>
   )
@@ -555,7 +1150,7 @@ function App() {
 
       <section className="work-card" id="analyze-section">
         <div className="card-intro">
-          <h2>Analyze News Content</h2>
+          <h2>🔎 Analyze News Content</h2>
           <p className="card-subtext">
             {mode === 'text'
               ? 'Paste news text below and get prediction, confidence, and reliability indicators.'
@@ -564,9 +1159,44 @@ function App() {
         </div>
 
         <div className="analysis-badges" aria-label="Analyzer highlights">
-          <span className="analysis-badge">Fast Prediction</span>
-          <span className="analysis-badge">Model Confidence</span>
-          <span className="analysis-badge">Clear Reasons</span>
+          <span className="analysis-badge">⚡ Fast Prediction</span>
+          <span className="analysis-badge">🎯 Model Confidence</span>
+          <span className="analysis-badge">🧠 Clear Reasons</span>
+        </div>
+
+        <div className="api-health-row">
+          <span className={`api-health-pill ${apiHealth.status}`}>{apiHealthLabel}</span>
+          <button
+            type="button"
+            className="secondary-btn health-btn"
+            onClick={() => void checkApiHealth()}
+            disabled={healthChecking}
+          >
+            {healthChecking ? 'Checking...' : '🔄 Refresh Health'}
+          </button>
+        </div>
+
+        <div className="demo-row" aria-label="Try demo checks">
+          {mode === 'text' && (
+            <button
+              type="button"
+              className="secondary-btn demo-btn"
+              onClick={loadTextDemo}
+              disabled={loading || demoImageLoading}
+            >
+              📰 Load Sample News
+            </button>
+          )}
+          {mode === 'image' && (
+            <button
+              type="button"
+              className="secondary-btn demo-btn"
+              onClick={() => void loadImageDemo()}
+              disabled={loading || demoImageLoading}
+            >
+              {demoImageLoading ? '🛠️ Preparing Sample Image...' : '🖼️ Try Sample Image'}
+            </button>
+          )}
         </div>
 
         {mode === 'text' ? (
@@ -585,8 +1215,15 @@ function App() {
               <span>{textStats.chars} characters</span>
             </div>
 
-            <button type="submit" className="primary-btn predict-btn" disabled={loading}>
-              {loading ? 'Predicting...' : 'Predict'}
+            <button type="submit" className="primary-btn predict-btn" disabled={loading || demoImageLoading}>
+              {loading ? (
+                <span className="btn-label">
+                  <span className="btn-spinner" aria-hidden="true" />
+                  Predicting...
+                </span>
+              ) : (
+                '🚀 Predict'
+              )}
             </button>
           </form>
         ) : (
@@ -635,13 +1272,29 @@ function App() {
               </div>
             )}
 
-            <button type="submit" className="primary-btn predict-btn" disabled={loading}>
-              {loading ? 'Reading Image...' : 'Predict'}
+            <button type="submit" className="primary-btn predict-btn" disabled={loading || demoImageLoading}>
+              {loading ? (
+                <span className="btn-label">
+                  <span className="btn-spinner" aria-hidden="true" />
+                  🖼️ Reading Image...
+                </span>
+              ) : (
+                '🚀 Predict'
+              )}
             </button>
           </form>
         )}
 
-        {error && <p className="error-banner">{error}</p>}
+        {error && (
+          <div className="error-wrap">
+            <p className="error-banner">{error}</p>
+            {retryContext && !loading && !feedbackSubmitting && (
+              <button type="button" className="secondary-btn retry-btn" onClick={retryFailedRequest}>
+                {retryButtonLabel}
+              </button>
+            )}
+          </div>
+        )}
 
         {showResult && (
           <section className={`result-card ${result?.result === 'REAL' ? 'result-real' : ''} ${result?.result === 'FAKE' ? 'result-fake' : ''}`}>
@@ -658,32 +1311,25 @@ function App() {
                   </>
                 )}
 
-                {result.result === 'FAKE' && (
-                  <article className="reason-box">
-                    <h3>Why this news is likely fake ⚠️</h3>
+                <article className="insight-box">
+                  <h3>🤔 Why this result?</h3>
+                  <ul className="reason-list">
+                    {topReasons.map((reason, index) => (
+                      <li key={`${reason}-${index}`}>{reason}</li>
+                    ))}
+                  </ul>
+                </article>
 
-                    {Array.isArray(result.fake_reasons_list) && result.fake_reasons_list.length > 0 ? (
-                      <ul className="reason-list">
-                        {result.fake_reasons_list.map((reason, index) => (
-                          <li key={`${reason}-${index}`}>{reason}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p>{result.fake_reasons}</p>
-                    )}
+                <article className="tips-box result-tips">
+                  <h4>✅ Fact-check tips</h4>
+                  <ul className="tips-list">
+                    {factCheckTips.map((tip, index) => (
+                      <li key={`${tip}-${index}`}>{tip}</li>
+                    ))}
+                  </ul>
+                </article>
 
-                    {Array.isArray(result.verification_tips) && result.verification_tips.length > 0 && (
-                      <div className="tips-box">
-                        <h4>Quick verification tips</h4>
-                        <ul className="tips-list">
-                          {result.verification_tips.map((tip, index) => (
-                            <li key={`${tip}-${index}`}>{tip}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </article>
-                )}
+                <p className="disclaimer-note">ℹ️ Disclaimer: AI-assisted prediction, not absolute truth.</p>
 
                 <div className="feedback-row">
                   <span>Feedback ✍️:</span>
@@ -691,16 +1337,19 @@ function App() {
                     type="button"
                     className={`feedback-btn ${feedback === 'real' ? 'selected' : ''}`}
                     onClick={() => handleFeedback('real')}
+                    disabled={loading || feedbackSubmitting}
                   >
-                    Real
+                    {feedbackSubmitting && retryFeedbackType === 'real' ? 'Submitting...' : 'Real'}
                   </button>
                   <button
                     type="button"
                     className={`feedback-btn ${feedback === 'fake' ? 'selected' : ''}`}
                     onClick={() => handleFeedback('fake')}
+                    disabled={loading || feedbackSubmitting}
                   >
-                    Fake
+                    {feedbackSubmitting && retryFeedbackType === 'fake' ? 'Submitting...' : 'Fake'}
                   </button>
+                  {feedbackSubmitting && <span className="feedback-status">Submitting feedback...</span>}
                 </div>
               </>
             )}
@@ -709,9 +1358,38 @@ function App() {
           </section>
         )}
 
+        <section className="history-card" aria-label="Recent checks">
+          <div className="history-head">
+            <h3>🕘 Recent Checks</h3>
+            <button type="button" className="secondary-btn history-clear-btn" onClick={clearHistory} disabled={!historyItems.length}>
+              🧹 Clear History
+            </button>
+          </div>
+
+          {historyItems.length > 0 ? (
+            <ul className="history-list">
+              {historyItems.map((item) => (
+                <li key={item.id} className="history-item">
+                  <div className="history-main">
+                    <span className={`history-mode ${item.mode === 'image' ? 'image' : 'text'}`}>
+                      {item.mode === 'image' ? 'Image' : 'Text'}
+                    </span>
+                    <strong className={`history-result ${item.result === 'REAL' ? 'real' : 'fake'}`}>{item.result}</strong>
+                    {typeof item.confidence === 'number' && <span className="history-confidence">{item.confidence}%</span>}
+                  </div>
+                  <p>{item.excerpt}</p>
+                  <span className="history-time">{formatHistoryTime(item.checkedAt)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="history-empty">🧾 No checks yet. Run a prediction to save recent results here.</p>
+          )}
+        </section>
+
         <div className="footer-row">
-          <button type="button" className="secondary-btn" onClick={handleClear}>
-            Clear
+          <button type="button" className="secondary-btn" onClick={handleClear} disabled={loading || feedbackSubmitting}>
+            🧼 Clear
           </button>
         </div>
       </section>
@@ -726,7 +1404,7 @@ function App() {
 
       <section className="info-card">
         <div className="page-intro">
-          <h2>Help Us Improve Fake News Detection</h2>
+          <h2>🛠️ Help Us Improve Fake News Detection</h2>
           <p>
             Your feedback helps us improve model quality, user experience, and overall accuracy for both text and image
             checks.
@@ -734,22 +1412,22 @@ function App() {
         </div>
 
         <div className="page-chip-row" aria-label="Feedback scope">
-          <span className="page-chip">Accuracy Review</span>
-          <span className="page-chip">UI Experience</span>
-          <span className="page-chip">Feature Suggestions</span>
+          <span className="page-chip">🧪 Accuracy Review</span>
+          <span className="page-chip">🎨 UI Experience</span>
+          <span className="page-chip">💡 Feature Suggestions</span>
         </div>
 
         <div className="feature-grid">
           <article className="feature-card">
-            <h3>Model Accuracy</h3>
+            <h3>🎯 Model Accuracy</h3>
             <p>Report cases where the prediction looked incorrect so we can improve training quality.</p>
           </article>
           <article className="feature-card">
-            <h3>User Experience</h3>
+            <h3>🧭 User Experience</h3>
             <p>Share if anything feels confusing, slow, or difficult while using text check or image check.</p>
           </article>
           <article className="feature-card">
-            <h3>Feature Request</h3>
+            <h3>✨ Feature Request</h3>
             <p>Suggest improvements like new checks, better explanations, or workflow enhancements.</p>
           </article>
         </div>
@@ -765,14 +1443,14 @@ function App() {
 
         <div className="about-layout feedback-layout">
           <article className="about-panel">
-            <h3>What Happens After Feedback</h3>
+            <h3>🔄 What Happens After Feedback</h3>
             <p>
               Useful reports are reviewed and grouped into model improvement tasks, UI fixes, and quality checks for
               upcoming updates.
             </p>
           </article>
           <article className="about-panel">
-            <h3>Best Way to Help</h3>
+            <h3>🤝 Best Way to Help</h3>
             <ul className="team-list">
               <li>Share the exact text or screenshot that was checked.</li>
               <li>Mention if prediction was false positive or false negative.</li>
@@ -781,13 +1459,20 @@ function App() {
           </article>
         </div>
 
+        <div className="feedback-contact">
+          <p>
+            📧 Have detailed feedback, bug reports, or ideas? We would love to hear from you at{' '}
+            <a href="mailto:ankitsbuild@gmail.com?subject=Fake%20News%20Detection%20Feedback">ankitsbuild@gmail.com</a>.
+          </p>
+        </div>
+
         <div className="cta-row">
           <button
             type="button"
             className="primary-btn page-btn"
             onClick={() => openAnalyzerPage(mode === 'image' ? 'image' : 'text', mode === 'image' ? 'image' : 'text')}
           >
-            Go to Analyzer
+            🔍 Go to Analyzer
           </button>
         </div>
       </section>
@@ -814,6 +1499,19 @@ function App() {
           <span className="page-chip">News Verification</span>
           <span className="page-chip">User-first UI</span>
         </div>
+
+        <section className="model-card-block about-credibility-block" aria-label="Model credibility">
+          <h3>📈 Model Credibility</h3>
+          <p className="about-credibility-note">Latest snapshot after retraining and threshold tuning to reduce wrong flips.</p>
+          <div className="model-card-grid about-credibility-grid">
+            {ABOUT_MODEL_CREDIBILITY.map((item) => (
+              <article key={`about-cred-${item.label}`} className="model-card-item">
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
 
         <div className="about-layout">
           <article className="about-panel">
@@ -844,11 +1542,69 @@ function App() {
           </div>
         </div>
 
+        <section className="architecture-section">
+          <h3>🧩 Methodology Architecture</h3>
+          <p>Frontend sends text/image input to FastAPI, API runs preprocessing and model inference, then returns insights.</p>
+          <img
+            src={architectureSrc}
+            alt="Architecture diagram showing Frontend, FastAPI Backend, and ML Model pipeline"
+            className="architecture-image"
+            loading="lazy"
+            decoding="async"
+          />
+        </section>
+
+        <section className="evaluation-section">
+          <h3>📊 Model Evaluation Snapshot</h3>
+          <p>Hold-out validation confusion matrix (class 0: FAKE, class 1: REAL) with tuned REAL threshold 0.40.</p>
+
+          <div className="matrix-wrap">
+            <table className="confusion-matrix">
+              <caption>Confusion Matrix</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Actual \\ Predicted</th>
+                  <th scope="col">FAKE</th>
+                  <th scope="col">REAL</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">FAKE</th>
+                  <td>3497</td>
+                  <td>83</td>
+                </tr>
+                <tr>
+                  <th scope="row">REAL</th>
+                  <td>14</td>
+                  <td>4171</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="metric-explain-grid">
+            <article className="metric-explain-card">
+              <h4>Validation Accuracy: 98.75%</h4>
+              <p>High split accuracy with balanced behavior across both classes.</p>
+            </article>
+            <article className="metric-explain-card">
+              <h4>Overfitting Gap: 0.30%</h4>
+              <p>Train and test scores stay close, so memorization risk is low.</p>
+            </article>
+            <article className="metric-explain-card">
+              <h4>Real-world Accuracy: 84.79%</h4>
+              <p>Tuned threshold reduces label flip errors on practical short-text checks.</p>
+            </article>
+          </div>
+        </section>
+
         <div className="team-section">
-          <h3>👥 Team Members</h3>
+          <h3>👨‍💻 Developed By</h3>
           <div className="team-grid">
             {TEAM_MEMBERS.map((member) => (
-              <article key={member.name} className="team-card">
+              <article key={member.name} className={`team-card ${member.lead ? 'lead' : ''}`}>
+                {member.lead && <span className="team-lead-badge">Project Lead</span>}
                 <h4>{member.name}</h4>
                 <p>{member.role}</p>
               </article>
@@ -928,14 +1684,30 @@ function App() {
     <>
       <header className={`app-topbar ${mobileHeaderMode ? 'mobile-mode' : ''}`}>
         <div className="topbar-inner" ref={topbarInnerRef}>
-          <div className="brand-wrap" ref={brandWrapRef}>
+          <button
+            type="button"
+            className="brand-wrap brand-home-btn"
+            ref={brandWrapRef}
+            onClick={openLandingPage}
+            aria-label="Go to home"
+          >
             <div className="brand-avatar">
-              <img src={logoSrc} alt="Fake News Detection logo" className="brand-avatar-image" />
+              <picture className="brand-avatar-picture">
+                <source srcSet={logoWebpSrc} type="image/webp" />
+                <img
+                  src={logoSrc}
+                  alt="Fake News Detection logo"
+                  className="brand-avatar-image"
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
+                />
+              </picture>
             </div>
             <div className="brand-text">
               <p className="brand-name">Fake News Detection</p>
             </div>
-          </div>
+          </button>
 
           <button
             type="button"

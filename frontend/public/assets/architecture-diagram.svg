@@ -1,0 +1,52 @@
+<svg width="1200" height="620" viewBox="0 0 1200 620" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Fake News Detection Architecture</title>
+  <desc id="desc">Frontend to API to model flow with response insights loop.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="620" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FBFF" />
+      <stop offset="1" stop-color="#EEF4FF" />
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#FFFFFF" />
+      <stop offset="1" stop-color="#F3F8FF" />
+    </linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+      <path d="M0 0L8 4L0 8V0Z" fill="#2563EB" />
+    </marker>
+  </defs>
+
+  <rect x="8" y="8" width="1184" height="604" rx="28" fill="url(#bg)" stroke="#D4E2FF" stroke-width="2" />
+
+  <rect x="72" y="126" width="292" height="344" rx="24" fill="url(#panel)" stroke="#CFE0FF" stroke-width="2" />
+  <text x="218" y="182" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#1E3A8A">Frontend</text>
+  <text x="218" y="224" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#334155">React + Vite</text>
+  <text x="218" y="284" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#475569">Text Input</text>
+  <text x="218" y="318" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#475569">Image Upload</text>
+  <text x="218" y="352" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#475569">History + UI State</text>
+
+  <rect x="454" y="82" width="292" height="436" rx="24" fill="url(#panel)" stroke="#CFE0FF" stroke-width="2" />
+  <text x="600" y="138" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#1E3A8A">API Layer</text>
+  <text x="600" y="180" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#334155">FastAPI</text>
+  <text x="600" y="244" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#475569">/api/predict</text>
+  <text x="600" y="278" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#475569">/api/predict-image</text>
+  <text x="600" y="312" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#475569">/api/health</text>
+  <text x="600" y="364" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#475569">Preprocess + OCR</text>
+  <text x="600" y="398" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#475569">Validation + Response</text>
+
+  <rect x="836" y="126" width="292" height="344" rx="24" fill="url(#panel)" stroke="#CFE0FF" stroke-width="2" />
+  <text x="982" y="182" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#1E3A8A">ML Model</text>
+  <text x="982" y="224" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#334155">Classifier + Rules</text>
+  <text x="982" y="284" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#475569">Prediction Label</text>
+  <text x="982" y="318" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#475569">Confidence Score</text>
+  <text x="982" y="352" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#475569">Reasons + Tips</text>
+
+  <path d="M364 298H446" stroke="#2563EB" stroke-width="4" marker-end="url(#arrow)" />
+  <path d="M746 298H828" stroke="#2563EB" stroke-width="4" marker-end="url(#arrow)" />
+  <path d="M828 344H746" stroke="#0EA5E9" stroke-width="4" marker-end="url(#arrow)" />
+  <path d="M446 344H364" stroke="#0EA5E9" stroke-width="4" marker-end="url(#arrow)" />
+
+  <rect x="388" y="534" width="424" height="58" rx="16" fill="#EAF3FF" stroke="#C8DCFF" />
+  <text x="600" y="572" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="600" fill="#1E3A8A">
+    Output: REAL/FAKE + Confidence + Why This Result + Fact-check Tips
+  </text>
+</svg>
