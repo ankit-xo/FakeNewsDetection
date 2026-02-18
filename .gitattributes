@@ -1,1 +1,2 @@
+# Keep large dataset CSV files in Git LFS
 dataset/*.csv filter=lfs diff=lfs merge=lfs -text

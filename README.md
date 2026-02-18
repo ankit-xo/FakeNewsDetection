@@ -9,6 +9,8 @@ A full-stack final year project to detect whether news content is likely **REAL*
 ## Live Demo
 
 - Frontend (GitHub Pages): `https://ankit-xo.github.io/FakeNewsDetection/home`
+- Backend API (Render): `https://fake-news-detection-api-8zp1.onrender.com`
+- API Docs: `https://fake-news-detection-api-8zp1.onrender.com/docs`
 
 
 ## Project Highlights
