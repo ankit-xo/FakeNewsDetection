@@ -4,9 +4,48 @@
 ![GitHub](https://img.shields.io/badge/GitHub-ankit--xo-black?style=for-the-badge&logo=github)
 ![Project](https://img.shields.io/badge/Project-FakeNewsDetection-success?style=for-the-badge)
 
-## Overview
+A full-stack final year project to detect whether news content is likely **REAL** or **FAKE** using text classification and image OCR.
 
-Fake News Detection is a full‑stack web app that checks whether news content is likely real or fake using text analysis and image OCR. The UI is built with React + Vite, and the API is powered by FastAPI.
+## Live Demo
+
+- Frontend (GitHub Pages): `https://ankit-xo.github.io/FakeNewsDetection/home`
+- Backend API (Render): `https://fake-news-detection-api-8zp1.onrender.com`
+- API Docs: `https://fake-news-detection-api-8zp1.onrender.com/docs`
+
+## Project Highlights
+
+- Text news prediction with confidence score
+- Image-based prediction using OCR + model inference
+- Why-this-result explanation + fact-check tips
+- API health indicator and retry UX
+- Context-aware retry flow for both prediction and feedback failures
+- Recent checks history (last 5 via localStorage)
+- Feedback collection and contact email
+- Mobile-optimized header/footer and responsive layout
+
+## Model Performance Snapshot
+
+| Metric | Value |
+|---|---|
+| Accuracy | 94.2% |
+| Precision | 93.6% |
+| Recall | 92.9% |
+| F1 Score | 93.2% |
+| Dataset Size | 44K+ records |
+| Last Trained | 14 Feb 2026 |
+
+Confusion matrix (validation split, positive class = FAKE):
+
+| Actual \\ Predicted | FAKE | REAL |
+|---|---:|---:|
+| FAKE | 1316 | 101 |
+| REAL | 90 | 1786 |
+
+## Architecture
+
+Frontend sends text/image input to FastAPI. Backend preprocesses text/OCR output, runs the model, and returns result + confidence + insights.
+
+![Architecture Diagram](frontend/public/assets/architecture-diagram.svg)
 
 ## Tech Stack
 
@@ -14,13 +53,6 @@ Fake News Detection is a full‑stack web app that checks whether news content i
 - Backend: FastAPI
 - ML: scikit-learn
 - OCR: pytesseract + Pillow
-
-## Key Features
-
-- Text news prediction
-- Image news prediction (OCR)
-- Confidence score with fake‑reason insights
-- User feedback capture
 
 ## Project Structure
 
@@ -33,14 +65,15 @@ FakeNewsDetection/
 │   ├── models/                  # trained model files
 │   └── feedback/                # user feedback logs
 ├── dataset/                     # datasets (Git LFS)
-├── Dockerfile                   # Render backend container
 ├── frontend/
+│   ├── public/assets/           # logo, favicon, architecture diagram
 │   ├── src/
-│   ├── public/
 │   ├── package.json
 │   └── vite.config.js
-├── requirements.txt             # Python dependencies
+├── Dockerfile                   # Render backend container
 ├── render.yaml                  # Render Blueprint config
+├── Testing.md                   # QA checklist and test cases
+├── requirements.txt
 └── README.md
 ```
 
@@ -51,96 +84,18 @@ FakeNewsDetection/
 - npm
 - Tesseract OCR installed
 
-## Clone the Repo
+## Clone Repository
 
 ```bash
 git clone https://github.com/ankit-xo/FakeNewsDetection.git
 cd FakeNewsDetection
 ```
 
+## Run Locally
 
-## Deploy on GitHub Pages (Frontend)
-
-```bash
-cd frontend
-npm install
-npm run deploy
-```
-
-Live URL:
-- `https://ankit-xo.github.io/FakeNewsDetection/home`
-
-Important:
-- GitHub Pages only hosts the frontend static app.
-- For live predictions, set `VITE_API_BASE_URL` to your deployed backend URL before deploy.
-
-macOS / Linux example:
-
-```bash
-cd frontend
-VITE_API_BASE_URL=https://your-backend-url.com npm run deploy
-```
-
-Windows PowerShell example:
-
-```powershell
-cd frontend
-$env:VITE_API_BASE_URL="https://your-backend-url.com"
-npm run deploy
-```
-
-## Deploy Backend on Render (Docker)
-
-This repo includes `Dockerfile` and `render.yaml` for backend deployment.
-
-1. Push latest code to GitHub.
-2. Open Render dashboard.
-3. Click `New +` and choose one option:
-   - `Blueprint` (recommended): select repo and Render will read `render.yaml`
-   - `Web Service`: select repo and set Environment to `Docker`
-4. Recommended values in Render dashboard (manual Web Service flow):
-   - Name: `fake-news-detection-api`
-   - Runtime: `Docker`
-   - Region: `Oregon (US West)` (or nearest to your users)
-   - Branch: `main`
-   - Plan: `Free`
-   - Auto-Deploy: `On Commit`
-   - Health Check Path: `/api/health`
-   - Dockerfile Path: `./Dockerfile`
-   - Docker Context: `.`
-5. Set/verify env var in Render:
-
-```text
-CORS_ALLOW_ORIGINS=https://ankit-xo.github.io,http://localhost:3000,http://127.0.0.1:3000
-```
-
-6. Deploy and wait for build to finish.
-7. Test backend:
-   - `https://<your-render-service>.onrender.com/api/health`
-8. Re-deploy frontend with Render backend URL:
+### 1) Backend
 
 macOS / Linux:
-
-```bash
-cd frontend
-VITE_API_BASE_URL=https://<your-render-service>.onrender.com npm run deploy
-```
-
-Windows PowerShell:
-
-```powershell
-cd frontend
-$env:VITE_API_BASE_URL="https://<your-render-service>.onrender.com"
-npm run deploy
-```
-
-Notes:
-- Render free plan can sleep after inactivity; first request may take time.
-- Docker image installs `tesseract-ocr`, so image prediction works on Render.
-
-## Run Locally (macOS / Linux)
-
-1. Backend
 
 ```bash
 python3 -m venv venv
@@ -149,22 +104,7 @@ pip install -r requirements.txt
 uvicorn backend.core.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-2. Frontend (new terminal)
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-3. Open app
-
-- Frontend UI: `http://localhost:3000/home`
-- Backend API docs: `http://localhost:8000/docs`
-
-## Run Locally (Windows PowerShell)
-
-1. Backend
+Windows PowerShell:
 
 ```powershell
 python -m venv venv
@@ -173,73 +113,81 @@ pip install -r requirements.txt
 uvicorn backend.core.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-2. Frontend (new PowerShell)
+### 2) Frontend (new terminal)
 
-```powershell
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-3. Open app
+### 3) Open App
 
-- Frontend UI: `http://localhost:3000/home`
-- Backend API docs: `http://localhost:8000/docs`
+- Frontend: `http://localhost:3000/home`
+- Backend docs: `http://localhost:8000/docs`
 
-## Single Command (Run Both)
+### 4) Quick Health Check
+
+- API health: `http://localhost:8000/api/health`
+- Frontend health pill should show: `API Online • Model Ready`
+
+## Quick Demo Flow (For Evaluator)
+
+1. Open `Text Check` and click `Load Sample News`.
+2. Click `Predict` and review:
+   - result badge,
+   - confidence bar,
+   - `Why this result?`,
+   - `Fact-check tips`.
+3. Open `Image Check`, upload sample image, run prediction.
+4. Test `Feedback` buttons (`Real` / `Fake`).
+5. Disconnect backend briefly to verify error + retry UX.
+
+## Environment Variable (Frontend)
+
+Set backend base URL before deploy:
 
 macOS / Linux:
 
 ```bash
-cd "/path/to/FakeNewsDetection" && (venv/bin/python -m uvicorn backend.core.main:app --host 0.0.0.0 --port 8000 --reload &) && cd frontend && npm run dev
+cd frontend
+VITE_API_BASE_URL=https://your-backend-url.com npm run deploy
 ```
 
 Windows PowerShell:
 
 ```powershell
-cd "C:\\path\\to\\FakeNewsDetection"
-venv\Scripts\python -m uvicorn backend.core.main:app --host 0.0.0.0 --port 8000 --reload &
 cd frontend
-npm run dev
+$env:VITE_API_BASE_URL="https://your-backend-url.com"
+npm run deploy
 ```
 
-Stop backend (macOS / Linux):
+## Deploy Frontend on GitHub Pages
 
 ```bash
-pkill -f "backend.core.main:app"
+cd frontend
+npm install
+npm run deploy
 ```
 
-## Tesseract OCR
+## Deploy Backend on Render (Docker)
 
-- macOS (Homebrew):
+This repository already includes `Dockerfile` and `render.yaml`.
 
-```bash
-brew install tesseract
+1. Push latest code to GitHub.
+2. In Render, create a new `Blueprint` or `Web Service`.
+3. Use:
+   - Runtime: Docker
+   - Branch: `main`
+   - Health Check Path: `/api/health`
+4. Set env var:
+
+```text
+CORS_ALLOW_ORIGINS=https://ankit-xo.github.io,http://localhost:3000,http://127.0.0.1:3000
 ```
 
-- Windows (Chocolatey):
-
-```powershell
-choco install tesseract
-```
-
-If OCR fails, make sure `tesseract` is on your PATH.
-
-## Training
-
-macOS / Linux:
-
-```bash
-source venv/bin/activate
-python backend/core/train.py
-```
-
-Windows:
-
-```powershell
-venv\Scripts\activate
-python backend/core/train.py
-```
+5. Deploy and verify:
+   - `https://<your-render-service>.onrender.com/api/health`
 
 ## API Endpoints
 
@@ -248,13 +196,29 @@ python backend/core/train.py
 - `POST /api/predict-image`
 - `POST /api/feedback`
 
+## Testing
+
+Use the full QA checklist in `Testing.md`.
+
+Executed test evidence (Expected vs Actual + PASS/FAIL) is also included in `Testing.md` under:
+- `Executed Test Evidence (Final Demo Run)`
+
+Recommended quick checks before final submission:
+
+```bash
+cd frontend
+npm run lint
+npm run build
+```
+
 ## Notes
 
-- Real threshold: `0.50` (`PROB_THRESHOLD`)
-- Dataset CSVs in `dataset/` are tracked using Git LFS
-- `venv/`, `frontend/node_modules/`, `frontend/dist/`, and cache files are ignored
+- Threshold for REAL classification: `0.50` (`PROB_THRESHOLD`)
+- Dataset CSV files are tracked with Git LFS
+- Render free plan may sleep after inactivity
 
 ## Author
 
-**Ankit**
+**Ankit Anand**
 - GitHub: [@ankit-xo](https://github.com/ankit-xo)
+- Feedback email: [ankitsbuild@gmail.com](mailto:ankitsbuild@gmail.com)

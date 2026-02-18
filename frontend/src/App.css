@@ -1880,12 +1880,14 @@ html.low-end-mode .btn-spinner {
   background: linear-gradient(180deg, #f8fbff, #f4f8ff);
 }
 
-.history-head {
+.history-clear-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.history-head {
+  display: block;
 }
 
 .history-head h3 {

@@ -1359,11 +1359,14 @@ function App() {
         )}
 
         <section className="history-card" aria-label="Recent checks">
-          <div className="history-head">
-            <h3>🕘 Recent Checks</h3>
+          <div className="history-clear-row">
             <button type="button" className="secondary-btn history-clear-btn" onClick={clearHistory} disabled={!historyItems.length}>
               🧹 Clear History
             </button>
+          </div>
+
+          <div className="history-head">
+            <h3>🕘 Recent Checks</h3>
           </div>
 
           {historyItems.length > 0 ? (
