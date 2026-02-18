@@ -1285,6 +1285,12 @@ function App() {
           </form>
         )}
 
+        <div className="footer-row">
+          <button type="button" className="secondary-btn" onClick={handleClear} disabled={loading || feedbackSubmitting}>
+            🧼 Clear
+          </button>
+        </div>
+
         {error && (
           <div className="error-wrap">
             <p className="error-banner">{error}</p>
@@ -1389,12 +1395,6 @@ function App() {
             <p className="history-empty">🧾 No checks yet. Run a prediction to save recent results here.</p>
           )}
         </section>
-
-        <div className="footer-row">
-          <button type="button" className="secondary-btn" onClick={handleClear} disabled={loading || feedbackSubmitting}>
-            🧼 Clear
-          </button>
-        </div>
       </section>
     </>
   )
