@@ -45,8 +45,8 @@
   <path d="M828 344H746" stroke="#0EA5E9" stroke-width="4" marker-end="url(#arrow)" />
   <path d="M446 344H364" stroke="#0EA5E9" stroke-width="4" marker-end="url(#arrow)" />
 
-  <rect x="388" y="534" width="424" height="58" rx="16" fill="#EAF3FF" stroke="#C8DCFF" />
-  <text x="600" y="572" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="600" fill="#1E3A8A">
+  <rect x="92" y="526" width="1016" height="62" rx="20" fill="#EAF3FF" stroke="#C8DCFF" />
+  <text x="600" y="565" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="600" fill="#1E3A8A">
     Output: REAL/FAKE + Confidence + Why This Result + Fact-check Tips
   </text>
 </svg>
