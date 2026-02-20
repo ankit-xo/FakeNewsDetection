@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { createWorker } from 'tesseract.js'
 import './App.css'
 
 const API_BASE = (
@@ -8,9 +7,6 @@ const API_BASE = (
 
 const endpoint = (path) => `${API_BASE}${path}`
 const REQUEST_TIMEOUT_MS = 15000
-const OCR_SCAN_INTERVAL_MS = 1000
-const OCR_STABLE_HITS_REQUIRED = 3
-const OCR_MIN_TEXT_LENGTH = 24
 
 function extractServerMessage(payload) {
   if (!payload || typeof payload !== 'object') return ''
@@ -400,53 +396,6 @@ function pickSampleNews(currentText = '') {
   return source[index]
 }
 
-function normalizeScanText(value = '') {
-  return String(value || '')
-    .replace(/\s+/g, ' ')
-    .replace(/[^\w\s.,:;!?'"()%/-]/g, ' ')
-    .trim()
-}
-
-function buildScanFingerprint(value = '') {
-  const normalized = String(value || '')
-    .toLowerCase()
-    .replace(/[^\w\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-  if (!normalized) return ''
-  return normalized
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 18)
-    .join(' ')
-}
-
-function playScanSuccessSound() {
-  const AudioContextCtor = window.AudioContext || window.webkitAudioContext
-  if (!AudioContextCtor) return
-
-  const ctx = new AudioContextCtor()
-  const oscillator = ctx.createOscillator()
-  const gainNode = ctx.createGain()
-
-  oscillator.type = 'sine'
-  oscillator.frequency.setValueAtTime(820, ctx.currentTime)
-  oscillator.frequency.exponentialRampToValueAtTime(980, ctx.currentTime + 0.12)
-
-  gainNode.gain.setValueAtTime(0.0001, ctx.currentTime)
-  gainNode.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 0.03)
-  gainNode.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.2)
-
-  oscillator.connect(gainNode)
-  gainNode.connect(ctx.destination)
-  oscillator.start()
-  oscillator.stop(ctx.currentTime + 0.2)
-  window.setTimeout(() => {
-    void ctx.close()
-  }, 240)
-}
-
-
 const BASE_PATH = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '') || ''
 
 function withBasePath(path) {
@@ -503,384 +452,6 @@ function stateToPath(activePage, mode) {
   return '/home'
 }
 
-function CameraScannerModal({ open, onClose, onTextCaptured, onAnalyzeText, analyzing }) {
-  const videoRef = useRef(null)
-  const ocrCanvasRef = useRef(null)
-  const streamRef = useRef(null)
-  const workerRef = useRef(null)
-  const scanTimerRef = useRef(0)
-  const scanActiveRef = useRef(false)
-  const ocrBusyRef = useRef(false)
-  const progressUpdateRef = useRef(0)
-  const fingerprintRef = useRef('')
-  const stableHitsRef = useRef(0)
-
-  const [cameraReady, setCameraReady] = useState(false)
-  const [scanActive, setScanActive] = useState(false)
-  const [statusText, setStatusText] = useState('Preparing camera...')
-  const [ocrProgress, setOcrProgress] = useState(0)
-  const [stableHits, setStableHits] = useState(0)
-  const [scannerError, setScannerError] = useState('')
-  const [extractedText, setExtractedText] = useState('')
-  const [isLowEndScannerMode, setIsLowEndScannerMode] = useState(false)
-
-  const ocrTargetWidth = isLowEndScannerMode ? 820 : 1024
-
-  const clearScanLoop = useCallback(() => {
-    if (scanTimerRef.current) {
-      window.clearInterval(scanTimerRef.current)
-      scanTimerRef.current = 0
-    }
-  }, [])
-
-  const stopCameraStream = useCallback(() => {
-    const stream = streamRef.current
-    if (!stream) return
-    stream.getTracks().forEach((track) => track.stop())
-    streamRef.current = null
-  }, [])
-
-  const stopScanner = useCallback(() => {
-    scanActiveRef.current = false
-    setScanActive(false)
-    clearScanLoop()
-  }, [clearScanLoop])
-
-  const teardownScanner = useCallback(async () => {
-    stopScanner()
-    ocrBusyRef.current = false
-
-    const worker = workerRef.current
-    workerRef.current = null
-    if (worker) {
-      try {
-        await worker.terminate()
-      } catch {
-        // Ignore worker shutdown failures.
-      }
-    }
-
-    const video = videoRef.current
-    if (video) {
-      video.srcObject = null
-    }
-
-    stopCameraStream()
-    setCameraReady(false)
-    setOcrProgress(0)
-  }, [stopCameraStream, stopScanner])
-
-  const resetScanState = useCallback(() => {
-    fingerprintRef.current = ''
-    stableHitsRef.current = 0
-    setStableHits(0)
-  }, [])
-
-  const captureAndRecognizeFrame = useCallback(async () => {
-    if (!scanActiveRef.current || ocrBusyRef.current) return
-
-    const worker = workerRef.current
-    const video = videoRef.current
-    const canvas = ocrCanvasRef.current
-
-    if (!worker || !video || !canvas || video.readyState < 2) return
-
-    const videoWidth = video.videoWidth
-    const videoHeight = video.videoHeight
-    if (!videoWidth || !videoHeight) return
-
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })
-    if (!ctx) return
-
-    const cropWidth = Math.round(videoWidth * 0.84)
-    const cropHeight = Math.round(Math.min(videoHeight * 0.35, cropWidth * 0.58))
-    const sx = Math.round((videoWidth - cropWidth) / 2)
-    const sy = Math.round((videoHeight - cropHeight) / 2)
-
-    const targetWidth = ocrTargetWidth
-    const targetHeight = Math.max(300, Math.round((cropHeight / cropWidth) * targetWidth))
-    canvas.width = targetWidth
-    canvas.height = targetHeight
-
-    ctx.clearRect(0, 0, targetWidth, targetHeight)
-    ctx.filter = 'grayscale(1) contrast(1.52) brightness(1.12)'
-    ctx.drawImage(video, sx, sy, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight)
-
-    ocrBusyRef.current = true
-    try {
-      const recognized = await worker.recognize(canvas)
-      const raw = normalizeScanText(recognized?.data?.text || '')
-
-      if (raw) {
-        setExtractedText(raw)
-      }
-
-      if (raw.length < OCR_MIN_TEXT_LENGTH) {
-        resetScanState()
-        setStatusText(raw ? 'Text detected. Hold camera steady for stabilization...' : 'Align text inside the scanning frame.')
-        return
-      }
-
-      const fingerprint = buildScanFingerprint(raw)
-      if (fingerprint && fingerprint === fingerprintRef.current) {
-        stableHitsRef.current += 1
-      } else {
-        fingerprintRef.current = fingerprint
-        stableHitsRef.current = 1
-      }
-
-      setStableHits(stableHitsRef.current)
-      setStatusText(`Scanning live text... ${Math.min(stableHitsRef.current, OCR_STABLE_HITS_REQUIRED)}/${OCR_STABLE_HITS_REQUIRED}`)
-
-      if (stableHitsRef.current >= OCR_STABLE_HITS_REQUIRED) {
-        stopScanner()
-        setStatusText('Stable text detected. Ready to analyze.')
-        setExtractedText(raw)
-        onTextCaptured(raw)
-        playScanSuccessSound()
-      }
-    } catch {
-      stopScanner()
-      setScannerError('OCR failed during scan. Tap Rescan to try again.')
-      setStatusText('Scan paused.')
-    } finally {
-      ocrBusyRef.current = false
-    }
-  }, [ocrTargetWidth, onTextCaptured, resetScanState, stopScanner])
-
-  const startScanLoop = useCallback(() => {
-    if (!cameraReady || !workerRef.current) return
-
-    clearScanLoop()
-    scanActiveRef.current = true
-    setScanActive(true)
-    setScannerError('')
-    setStatusText('Scanning live text...')
-    scanTimerRef.current = window.setInterval(() => {
-      void captureAndRecognizeFrame()
-    }, OCR_SCAN_INTERVAL_MS)
-    void captureAndRecognizeFrame()
-  }, [cameraReady, captureAndRecognizeFrame, clearScanLoop])
-
-  const handleRescan = useCallback(() => {
-    resetScanState()
-    setScannerError('')
-    setStatusText('Rescanning...')
-    startScanLoop()
-  }, [resetScanState, startScanLoop])
-
-  useEffect(() => {
-    if (!open) {
-      return () => {}
-    }
-
-    let cancelled = false
-
-    const initializeScanner = async () => {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        const isLocalhost =
-          window.location.hostname === 'localhost' ||
-          window.location.hostname === '127.0.0.1' ||
-          window.location.hostname === '::1'
-
-        if (!window.isSecureContext && !isLocalhost) {
-          const secureUrl = window.location.href.replace(/^http:/, 'https:')
-          setScannerError(`Camera requires HTTPS secure connection. Open: ${secureUrl}`)
-          setStatusText('Insecure connection detected.')
-          return
-        }
-
-        setScannerError('Camera API not supported on this browser.')
-        setStatusText('Camera unavailable.')
-        return
-      }
-
-      if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        const secureUrl = window.location.href.replace(/^http:/, 'https:')
-        window.location.replace(secureUrl)
-        return
-      }
-
-      const nav = window.navigator
-      const lowMemory = typeof nav.deviceMemory === 'number' && nav.deviceMemory <= 2
-      const lowCpu = typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency <= 3
-      const lowEndDevice = lowMemory || lowCpu
-      setIsLowEndScannerMode(lowEndDevice)
-
-      resetScanState()
-      setScannerError('')
-      setOcrProgress(0)
-      progressUpdateRef.current = 0
-      setExtractedText('')
-      setStatusText('Requesting camera access...')
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            facingMode: { ideal: 'environment' },
-            width: { ideal: lowEndDevice ? 1280 : 1920 },
-            height: { ideal: lowEndDevice ? 720 : 1080 },
-          },
-        })
-
-        if (cancelled) {
-          stream.getTracks().forEach((track) => track.stop())
-          return
-        }
-
-        streamRef.current = stream
-        const video = videoRef.current
-        if (!video) {
-          throw new Error('Video element unavailable')
-        }
-
-        video.srcObject = stream
-        await video.play()
-
-        const [track] = stream.getVideoTracks()
-        if (track?.applyConstraints) {
-          void track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {})
-        }
-
-        setCameraReady(true)
-        setStatusText('Loading OCR engine...')
-
-        const worker = await createWorker('eng', 1, {
-          logger: (message) => {
-            if (message?.status === 'recognizing text') {
-              const now = performance.now()
-              if (now - progressUpdateRef.current >= 120) {
-                progressUpdateRef.current = now
-                setOcrProgress(Math.max(0, Math.min(100, Math.round((message.progress || 0) * 100))))
-              }
-            }
-          },
-        })
-
-        if (cancelled) {
-          await worker.terminate().catch(() => {})
-          return
-        }
-
-        workerRef.current = worker
-        await worker
-          .setParameters({
-            tessedit_pageseg_mode: '6',
-            preserve_interword_spaces: '1',
-          })
-          .catch(() => {})
-
-        setStatusText('Align text inside the scanning frame.')
-        startScanLoop()
-      } catch (cameraError) {
-        const errorName = cameraError?.name || ''
-        if (errorName === 'NotAllowedError') {
-          setScannerError('Camera permission denied. Allow camera access in browser settings and retry.')
-        } else if (errorName === 'NotFoundError') {
-          setScannerError('No camera device found on this system.')
-        } else if (errorName === 'NotReadableError') {
-          setScannerError('Camera is already in use by another app/tab. Close other camera apps and retry.')
-        } else if (errorName === 'SecurityError') {
-          setScannerError('Camera is blocked on insecure connection. Use HTTPS URL.')
-        } else {
-          setScannerError('Unable to access camera or initialize OCR.')
-        }
-        setStatusText('Scanner not available.')
-      }
-    }
-
-    void initializeScanner()
-
-    return () => {
-      cancelled = true
-      void teardownScanner()
-    }
-  }, [open, resetScanState, startScanLoop, teardownScanner])
-
-  const handleClose = useCallback(() => {
-    void teardownScanner()
-    onClose()
-  }, [onClose, teardownScanner])
-
-  const handleAnalyze = useCallback(async () => {
-    const normalizedText = normalizeScanText(extractedText)
-    if (!normalizedText || analyzing) return
-    onTextCaptured(normalizedText)
-    await onAnalyzeText(normalizedText)
-  }, [analyzing, extractedText, onAnalyzeText, onTextCaptured])
-
-  if (!open) return null
-
-  return (
-    <div className="scanner-modal" role="dialog" aria-modal="true" aria-label="Real-time camera text scanner">
-      <div className="scanner-stage">
-        <video ref={videoRef} className="scanner-video" playsInline autoPlay muted />
-        <div className="scanner-shade" aria-hidden="true" />
-        <div className="scanner-frame" aria-hidden="true">
-          <div className={`scanner-line ${scanActive ? 'active' : ''}`} />
-        </div>
-
-        <div className="scanner-top-row">
-          <span className={`scanner-status-pill ${scanActive ? 'active' : ''}`}>{statusText}</span>
-          <button type="button" className="scanner-close-btn" onClick={handleClose} aria-label="Close camera scanner">
-            Close
-          </button>
-        </div>
-
-        <div className="scanner-bottom-row">
-          <p>OCR progress: {ocrProgress}%</p>
-          <p>
-            Stable checks: {stableHits}/{OCR_STABLE_HITS_REQUIRED}
-          </p>
-        </div>
-      </div>
-
-      <aside className="scanner-control-pane">
-        <article className="scanner-preview-card">
-          <h3>Extracted Text Preview</h3>
-          <p>Text auto-fills after stable detection. You can edit before prediction.</p>
-          <textarea
-            className="scanner-textarea"
-            value={extractedText}
-            onChange={(event) => {
-              const nextText = event.target.value
-              setExtractedText(nextText)
-              onTextCaptured(nextText)
-            }}
-            placeholder="Scanned text will appear here..."
-          />
-        </article>
-
-        {scannerError && <p className="scanner-error">{scannerError}</p>}
-
-        <div className="scanner-action-row">
-          <button type="button" className="secondary-btn scanner-rescan-btn" onClick={handleRescan} disabled={!cameraReady || analyzing}>
-            Rescan
-          </button>
-          <button
-            type="button"
-            className="primary-btn scanner-analyze-btn"
-            onClick={() => void handleAnalyze()}
-            disabled={!extractedText.trim() || analyzing}
-          >
-            {analyzing ? (
-              <span className="btn-label">
-                <span className="btn-spinner" aria-hidden="true" />
-                Analyzing...
-              </span>
-            ) : (
-              'Scan & Analyze'
-            )}
-          </button>
-        </div>
-      </aside>
-
-      <canvas ref={ocrCanvasRef} className="scanner-hidden-canvas" aria-hidden="true" />
-    </div>
-  )
-}
-
 function App() {
   const logoSrc = withBasePath('/assets/logo.png')
   const architectureSrc = withBasePath('/assets/architecture-diagram.svg')
@@ -899,7 +470,6 @@ function App() {
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState('')
   const [demoImageLoading, setDemoImageLoading] = useState(false)
-  const [scannerOpen, setScannerOpen] = useState(false)
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
   const [retryContext, setRetryContext] = useState(null)
   const [retryFeedbackType, setRetryFeedbackType] = useState('')
@@ -1059,12 +629,6 @@ function App() {
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [mobileMenuOpen])
-
-  useEffect(() => {
-    if (activePage !== 'analyzer' || mode !== 'image') {
-      setScannerOpen(false)
-    }
-  }, [activePage, mode])
 
   const checkApiHealth = useCallback(async () => {
     setHealthChecking(true)
@@ -1276,27 +840,6 @@ function App() {
     void runTextPrediction()
   }
 
-  const openCameraScanner = () => {
-    if (mode !== 'image') {
-      openAnalyzerPage('image', 'image')
-    }
-    setScannerOpen(true)
-    setRetryContext(null)
-    setRetryFeedbackType('')
-    setError('')
-  }
-
-  const handleScanAnalyze = async (scannedText) => {
-    const cleanedText = normalizeScanText(scannedText)
-    if (!cleanedText) {
-      return
-    }
-
-    setText(cleanedText)
-    setScannerOpen(false)
-    await runTextPrediction(cleanedText, 'image')
-  }
-
   const handleImageSubmit = (event) => {
     event.preventDefault()
     void runImagePrediction()
@@ -1371,7 +914,6 @@ function App() {
 
   const loadTextDemo = () => {
     openAnalyzerPage('text', 'text')
-    setScannerOpen(false)
     clearImage()
     setResult(null)
     setError('')
@@ -1383,7 +925,6 @@ function App() {
 
   const loadImageDemo = async () => {
     openAnalyzerPage('image', 'image')
-    setScannerOpen(false)
     setResult(null)
     setError('')
     setRetryContext(null)
@@ -1501,7 +1042,6 @@ function App() {
   const openAnalyzerPage = (nextMode = 'text', navTab = 'text') => {
     setRoute('analyzer', navTab, nextMode)
     setMobileMenuOpen(false)
-    setScannerOpen(false)
     setError('')
     setRetryContext(null)
     setRetryFeedbackType('')
@@ -1509,7 +1049,6 @@ function App() {
 
   const handleClear = () => {
     const nextMode = mode === 'image' ? 'image' : 'text'
-    setScannerOpen(false)
     setText('')
     clearImage()
     setResult(null)
@@ -1703,18 +1242,6 @@ function App() {
           </form>
         ) : (
           <form className="form" onSubmit={handleImageSubmit}>
-            <div className="scanner-launch-row">
-              <button
-                type="button"
-                className="secondary-btn scanner-open-btn"
-                onClick={openCameraScanner}
-                disabled={loading || demoImageLoading}
-              >
-                📷 Open Live Scanner
-              </button>
-              <p className="scanner-launch-hint">Live OCR scanner for camera-based text extraction and quick analysis.</p>
-            </div>
-
             <label
               htmlFor="news-image"
               className={`upload-box ${isDragActive ? 'drag-active' : ''}`}
@@ -1770,16 +1297,6 @@ function App() {
               )}
             </button>
           </form>
-        )}
-
-        {mode === 'image' && (
-          <CameraScannerModal
-            open={scannerOpen}
-            onClose={() => setScannerOpen(false)}
-            onTextCaptured={setText}
-            onAnalyzeText={handleScanAnalyze}
-            analyzing={loading}
-          />
         )}
 
         <div className="footer-row">
