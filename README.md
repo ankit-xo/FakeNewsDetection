@@ -36,19 +36,19 @@ A full-stack project to detect whether news content is likely **REAL** or **FAKE
 
 | Metric | Value |
 |---|---|
-| Accuracy | 94.2% |
-| Precision | 93.6% |
-| Recall | 92.9% |
-| F1 Score | 93.2% |
-| Dataset Size | 44K+ records |
-| Last Trained | 14 Feb 2026 |
+| Accuracy | 98.5% |
+| Precision | 99.7% |
+| Recall | 96.9% |
+| F1 Score | 98.3% |
+| Dataset Size | 38.8K+ records |
+| Last Trained | 6 Apr 2026 |
 
 Confusion matrix (validation split, positive class = FAKE):
 
 | Actual \\ Predicted | FAKE | REAL |
 |---|---:|---:|
-| FAKE | 1316 | 101 |
-| REAL | 90 | 1786 |
+| FAKE | 3470 | 110 |
+| REAL | 9 | 4176 |
 
 ## Architecture
 
