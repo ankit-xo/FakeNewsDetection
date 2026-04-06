@@ -218,4 +218,4 @@ CORS_ALLOW_ORIGINS=https://ankit-xo.github.io,http://localhost:3000,http://127.0
 
 **Ankit Anand**
 - GitHub: [@ankit-xo](https://github.com/ankit-xo)
-- Feedback email: [ankitsbuild@gmail.com](mailto:ankitsbuild@gmail.com)
+- Feedback email: [ankitanand.works@gmail.com](mailto:ankitanand.works@gmail.com)

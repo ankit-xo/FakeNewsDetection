@@ -1479,7 +1479,7 @@ function App() {
         <div className="feedback-contact">
           <p>
             📧 Have detailed feedback, bug reports, or ideas? We would love to hear from you at{' '}
-            <a href="mailto:ankitsbuild@gmail.com?subject=Fake%20News%20Detection%20Feedback">ankitsbuild@gmail.com</a>.
+            <a href="mailto:ankitanand.works@gmail.com?subject=Fake%20News%20Detection%20Feedback">ankitanand.works@gmail.com</a>.
           </p>
         </div>
 
