@@ -129,7 +129,7 @@ const MODEL_SNAPSHOT = [
   { value: '98.69%', label: '5-Fold CV Accuracy' },
   { value: '82.60%', label: 'Real-world Accuracy' },
   { value: '38,824', label: 'Clean Training Samples' },
-  { value: '18 Feb 2026', label: 'Last Trained' },
+  { value: '7 Apr 2026', label: 'Last Trained' },
 ]
 
 const ABOUT_MODEL_CREDIBILITY = [
@@ -137,7 +137,7 @@ const ABOUT_MODEL_CREDIBILITY = [
   { value: '98.69%', label: 'Cross-Validation' },
   { value: '82.60%', label: 'Real-world Accuracy' },
   { value: '0.30%', label: 'Overfitting Gap' },
-  { value: '18 Feb 2026', label: 'Last Trained' },
+  { value: '7 Apr 2026', label: 'Last Trained' },
 ]
 
 const HERO_MODEL_SNAPSHOT = [

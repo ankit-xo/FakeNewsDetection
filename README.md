@@ -41,7 +41,7 @@ A full-stack project to detect whether news content is likely **REAL** or **FAKE
 | Recall | 96.9% |
 | F1 Score | 98.3% |
 | Dataset Size | 38.8K+ records |
-| Last Trained | 6 Apr 2026 |
+| Last Trained | 7 Apr 2026 |
 
 Confusion matrix (validation split, positive class = FAKE):
 
