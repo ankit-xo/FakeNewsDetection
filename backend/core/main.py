@@ -116,6 +116,11 @@ app.add_middleware(
 
 if os.path.exists(FRONTEND_ASSETS_DIR):
     app.mount("/assets", StaticFiles(directory=FRONTEND_ASSETS_DIR), name="frontend-assets")
+    app.mount(
+        "/FakeNewsDetection/assets",
+        StaticFiles(directory=FRONTEND_ASSETS_DIR),
+        name="frontend-assets-gh-pages-base",
+    )
 
 
 # ================= LOAD MODEL =================

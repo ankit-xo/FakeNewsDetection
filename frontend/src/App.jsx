@@ -1,9 +1,33 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
-const API_BASE = (
-  import.meta.env.VITE_API_BASE_URL || 'https://fake-news-detection-api-8zp1.onrender.com'
-).replace(/\/$/, '')
+const FALLBACK_API_BASE = 'https://fake-news-detection-api-8zp1.onrender.com'
+
+function isPrivateIpv4Host(hostname) {
+  if (/^10\./.test(hostname)) return true
+  if (/^192\.168\./.test(hostname)) return true
+  return /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+}
+
+function resolveDefaultApiBase() {
+  if (typeof window === 'undefined') return FALLBACK_API_BASE
+
+  const hostname = (window.location.hostname || '').toLowerCase()
+  const isLocalHost =
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '0.0.0.0' ||
+    hostname === '[::1]' ||
+    isPrivateIpv4Host(hostname)
+
+  if (isLocalHost) {
+    return window.location.origin
+  }
+
+  return FALLBACK_API_BASE
+}
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || resolveDefaultApiBase()).replace(/\/$/, '')
 
 const endpoint = (path) => `${API_BASE}${path}`
 const REQUEST_TIMEOUT_MS = 15000
