@@ -1085,6 +1085,9 @@ function App() {
 
   const showResult = Boolean(result?.result || result?.note)
   const retryButtonLabel = retryContext === 'feedback' ? 'Retry Feedback' : 'Retry Prediction'
+  const resultDisclaimerText =
+    'AI-generated result. May not be accurate.'
+  const renderDisclaimerNote = () => <p className="disclaimer-note">{resultDisclaimerText}</p>
 
   const renderHomePage = () => (
     <>
@@ -1355,6 +1358,8 @@ function App() {
                   </>
                 )}
 
+                {result.result === 'FAKE' && renderDisclaimerNote()}
+
                 <article className="insight-box">
                   <h3>🤔 Why this result?</h3>
                   <ul className="reason-list">
@@ -1373,7 +1378,7 @@ function App() {
                   </ul>
                 </article>
 
-                <p className="disclaimer-note">ℹ️ Disclaimer: AI-assisted prediction, not absolute truth.</p>
+                {result.result !== 'FAKE' && renderDisclaimerNote()}
 
                 <div className="feedback-row">
                   <span>Feedback ✍️:</span>

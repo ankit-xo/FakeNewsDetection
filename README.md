@@ -104,6 +104,21 @@ cd FakeNewsDetection
 
 ## Run Locally
 
+### One Command Start
+
+After installing Python dependencies and frontend packages once, start both backend and frontend together from the project root:
+
+```bash
+python3 run_dev.py
+```
+
+This starts:
+
+- Frontend: `http://localhost:3000/home`
+- Backend docs: `http://localhost:8000/docs`
+
+If you already have a local `venv/`, the script will use it automatically.
+
 ### 1) Backend
 
 macOS / Linux:
