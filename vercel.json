@@ -4,24 +4,7 @@
   "installCommand": "npm --prefix frontend ci",
   "buildCommand": "npm --prefix frontend run build",
   "outputDirectory": "frontend/dist",
-  "functions": {
-    "api/index.py": {
-      "excludeFiles": "{dataset/**,docs/**,frontend/**,venv/**,**/__pycache__/**,backend/core/train.py,run_dev.py,Dockerfile,render.yaml}"
-    }
-  },
   "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/docs",
-      "destination": "/api/index.py"
-    },
-    {
-      "source": "/openapi.json",
-      "destination": "/api/index.py"
-    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

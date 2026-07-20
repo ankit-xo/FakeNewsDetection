@@ -3,13 +3,24 @@ import './App.css'
 
 const FALLBACK_API_BASE = 'https://fake-news-detection-api-8zp1.onrender.com'
 
+function isPrivateIpv4Host(hostname) {
+  if (/^10\./.test(hostname)) return true
+  if (/^192\.168\./.test(hostname)) return true
+  return /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+}
+
 function resolveDefaultApiBase() {
   if (typeof window === 'undefined') return FALLBACK_API_BASE
 
   const hostname = (window.location.hostname || '').toLowerCase()
-  const isGithubPages = hostname === 'github.io' || hostname.endsWith('.github.io')
+  const isLocalHost =
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '0.0.0.0' ||
+    hostname === '[::1]' ||
+    isPrivateIpv4Host(hostname)
 
-  return isGithubPages ? FALLBACK_API_BASE : window.location.origin
+  return isLocalHost ? window.location.origin : FALLBACK_API_BASE
 }
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || resolveDefaultApiBase()).replace(/\/$/, '')

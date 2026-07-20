@@ -83,9 +83,7 @@ FakeNewsDetection/
 │   └── screenshots/             # README website screenshots
 ├── Dockerfile                   # Render backend container
 ├── render.yaml                  # Render Blueprint config
-├── vercel.json                  # Vercel frontend + API routing
-├── pyproject.toml               # Explicit Vercel FastAPI entry point
-├── api/index.py                 # Vercel FastAPI function entry point
+├── vercel.json                  # Vercel frontend build + SPA routing
 ├── Testing.md                   # QA checklist and test cases
 ├── requirements.txt
 └── README.md
@@ -203,24 +201,20 @@ npm run deploy
 
 ## Deploy Full Stack on Vercel
 
-This repository includes `vercel.json` and `api/index.py`, so one Vercel project
-can deploy the Vite frontend and FastAPI text-prediction API.
+This repository deploys the Vite frontend on Vercel and uses the FastAPI backend
+hosted on Render.
 
 1. Import the repository into Vercel.
 2. Keep the project root as the repository root.
 3. Leave the build settings as configured by `vercel.json`.
-4. Deploy and verify:
-   - `/home`
-   - `/api/health`
-   - `/docs`
+4. Deploy and open `/home`.
 
-No environment variable is required for the standard same-origin deployment.
-Image OCR runs in the browser, then sends extracted text to the FastAPI model.
-The Vercel Python runtime is pinned to Python 3.12 in `.python-version`.
+No Vercel Python Function is required. Production API calls use the Render
+backend URL configured in `frontend/src/App.jsx`. Image OCR runs in the browser,
+then sends extracted text to the Render FastAPI model.
 
-Vercel Functions only provide temporary writable storage, so feedback accepted
-on Vercel is not durable. Connect a database or external storage service before
-using feedback for production data collection.
+Set `VITE_API_BASE_URL` in Vercel only when deploying the backend at a different
+public URL.
 
 ## Deploy Backend on Render (Docker)
 
