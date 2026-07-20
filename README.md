@@ -1,7 +1,7 @@
 # Fake News Detection
 
 ![Author](https://img.shields.io/badge/Author-Ankit-blue?style=for-the-badge)
-![GitHub](https://img.shields.io/badge/GitHub-ankit--xo-black?style=for-the-badge&logo=github)
+![GitHub](https://img.shields.io/badge/GitHub-ankitanand047-black?style=for-the-badge&logo=github)
 ![Project](https://img.shields.io/badge/Project-FakeNewsDetection-success?style=for-the-badge)
 
 A full-stack project to detect whether news content is likely **REAL** or **FAKE** using text classification and image OCR.
