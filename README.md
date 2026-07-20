@@ -8,7 +8,7 @@ A full-stack project to detect whether news content is likely **REAL** or **FAKE
 
 ## Live Demo
 
-- Website (GitHub Pages): `https://ankit-xo.github.io/FakeNewsDetection/home`
+- Website (GitHub Pages): `https://ankitaanand047.github.io/FakeNewsDetection/home`
 
 ## Website Screenshots
 
