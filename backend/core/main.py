@@ -107,14 +107,24 @@ cors_origins = [
     origin.strip()
     for origin in os.getenv(
         "CORS_ALLOW_ORIGINS",
-        "http://localhost:3000,http://127.0.0.1:3000",
+        (
+            "https://ankit-xo.github.io,"
+            "https://ankitanand047.github.io,"
+            "http://localhost:3000,"
+            "http://127.0.0.1:3000"
+        ),
     ).split(",")
     if origin.strip()
 ]
+cors_origin_regex = os.getenv(
+    "CORS_ALLOW_ORIGIN_REGEX",
+    r"^https://(?:[a-z0-9-]+\.vercel\.app|(?:ankit-xo|ankitanand047)\.github\.io)$",
+).strip() or None
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
+    allow_origin_regex=cors_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -26,7 +26,8 @@ function resolveDefaultApiBase() {
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || resolveDefaultApiBase()).replace(/\/$/, '')
 
 const endpoint = (path) => `${API_BASE}${path}`
-const REQUEST_TIMEOUT_MS = 15000
+const REQUEST_TIMEOUT_MS = 75000
+const HEALTH_CHECK_TIMEOUT_MS = 60000
 
 function extractServerMessage(payload) {
   if (!payload || typeof payload !== 'object') return ''
@@ -666,7 +667,7 @@ function App() {
     setHealthChecking(true)
 
     try {
-      const response = await fetchWithTimeout(endpoint('/api/health'), {}, 8000)
+      const response = await fetchWithTimeout(endpoint('/api/health'), {}, HEALTH_CHECK_TIMEOUT_MS)
       if (!response.ok) {
         throw new Error('Health check failed')
       }

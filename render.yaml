@@ -9,4 +9,6 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: CORS_ALLOW_ORIGINS
-        value: https://ankit-xo.github.io,http://localhost:3000,http://127.0.0.1:3000
+        value: https://ankit-xo.github.io,https://ankitanand047.github.io,http://localhost:3000,http://127.0.0.1:3000
+      - key: CORS_ALLOW_ORIGIN_REGEX
+        value: ^https://(?:[a-z0-9-]+\.vercel\.app|(?:ankit-xo|ankitanand047)\.github\.io)$
