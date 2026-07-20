@@ -83,7 +83,7 @@ FakeNewsDetection/
 │   └── screenshots/             # README website screenshots
 ├── Dockerfile                   # Render backend container
 ├── render.yaml                  # Render Blueprint config
-├── vercel.json                  # Vercel frontend build + SPA routing
+├── vercel.json                  # Root fallback for Vercel frontend deploys
 ├── Testing.md                   # QA checklist and test cases
 ├── requirements.txt
 └── README.md
@@ -205,9 +205,11 @@ This repository deploys the Vite frontend on Vercel and uses the FastAPI backend
 hosted on Render.
 
 1. Import the repository into Vercel.
-2. Keep the project root as the repository root.
-3. Leave the build settings as configured by `vercel.json`.
-4. Deploy and open `/home`.
+2. Set **Root Directory** to `frontend`.
+3. Keep **Framework Preset** as `Vite`.
+4. Leave the remaining build settings at their Vite defaults. The SPA rewrite is
+   configured in `frontend/vercel.json`.
+5. Deploy and open `/home`.
 
 No Vercel Python Function is required. Production API calls use the Render
 backend URL configured in `frontend/src/App.jsx`. Image OCR runs in the browser,
