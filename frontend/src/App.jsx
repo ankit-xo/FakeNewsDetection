@@ -3,28 +3,13 @@ import './App.css'
 
 const FALLBACK_API_BASE = 'https://fake-news-detection-api-8zp1.onrender.com'
 
-function isPrivateIpv4Host(hostname) {
-  if (/^10\./.test(hostname)) return true
-  if (/^192\.168\./.test(hostname)) return true
-  return /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
-}
-
 function resolveDefaultApiBase() {
   if (typeof window === 'undefined') return FALLBACK_API_BASE
 
   const hostname = (window.location.hostname || '').toLowerCase()
-  const isLocalHost =
-    hostname === 'localhost' ||
-    hostname === '127.0.0.1' ||
-    hostname === '0.0.0.0' ||
-    hostname === '[::1]' ||
-    isPrivateIpv4Host(hostname)
+  const isGithubPages = hostname === 'github.io' || hostname.endsWith('.github.io')
 
-  if (isLocalHost) {
-    return window.location.origin
-  }
-
-  return FALLBACK_API_BASE
+  return isGithubPages ? FALLBACK_API_BASE : window.location.origin
 }
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || resolveDefaultApiBase()).replace(/\/$/, '')
@@ -139,6 +124,18 @@ async function safeJson(response) {
     return await response.json()
   } catch {
     return {}
+  }
+}
+
+async function extractTextWithBrowserOcr(image) {
+  const { createWorker } = await import('tesseract.js')
+  const worker = await createWorker('eng')
+
+  try {
+    const result = await worker.recognize(image)
+    return String(result?.data?.text || '').trim()
+  } finally {
+    await worker.terminate()
   }
 }
 
@@ -752,7 +749,11 @@ function App() {
     })
   }
 
-  const runTextPrediction = async (overrideText = null, historyMode = 'text') => {
+  const runTextPrediction = async (
+    overrideText = null,
+    historyMode = 'text',
+    retryMode = 'predict-text',
+  ) => {
     const cleanedText = String(overrideText ?? text ?? '').trim()
     setRetryContext(null)
     setRetryFeedbackType('')
@@ -767,34 +768,20 @@ function App() {
     setError('')
 
     try {
-      const predictionPaths = ['/api/predict', '/predict']
       const requestBody = JSON.stringify({ text: cleanedText })
-      let response = null
-      let data = {}
-
-      for (const path of predictionPaths) {
-        response = await fetchWithTimeout(endpoint(path), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: requestBody,
-        })
-        data = await safeJson(response)
-
-        if (response.status !== 404) {
-          break
-        }
-      }
-
-      if (!response) {
-        throw new Error('Prediction endpoint unavailable')
-      }
+      const response = await fetchWithTimeout(endpoint('/api/predict'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: requestBody,
+      })
+      const data = await safeJson(response)
 
       if (!response.ok) {
         setResult(null)
-        setError(resolveApiErrorMessage(response.status, 'predict-text', extractServerMessage(data)))
-        setRetryContext('predict-text')
+        setError(resolveApiErrorMessage(response.status, retryMode, extractServerMessage(data)))
+        setRetryContext(retryMode)
         return
       }
 
@@ -805,8 +792,8 @@ function App() {
       appendHistory(data, historyMode, cleanedText)
     } catch (requestError) {
       setResult(null)
-      setError(resolveNetworkErrorMessage(requestError, 'predict-text'))
-      setRetryContext('predict-text')
+      setError(resolveNetworkErrorMessage(requestError, retryMode))
+      setRetryContext(retryMode)
     } finally {
       setLoading(false)
     }
@@ -825,34 +812,20 @@ function App() {
     setLoading(true)
     setError('')
 
-    const formData = new FormData()
-    formData.append('image', imageFile)
-
     try {
-      const response = await fetchWithTimeout(endpoint('/api/predict-image'), {
-        method: 'POST',
-        body: formData,
-      })
-
-      const data = await safeJson(response)
-      if (!response.ok) {
-        setResult(null)
-        setError(resolveApiErrorMessage(response.status, 'predict-image', extractServerMessage(data)))
-        setRetryContext('predict-image')
+      const extractedText = await extractTextWithBrowserOcr(imageFile)
+      if (extractedText.length < 20) {
+        setResult(emptyResult('Could not extract enough readable text from this image.'))
+        setText(extractedText)
+        setError('')
         return
       }
 
-      setResult(data)
-      setFeedback('')
-      if (data.input_text) {
-        setText(data.input_text)
-      }
-      setError('')
-      setRetryContext(null)
-      appendHistory(data, 'image', data.input_text || imageFile.name)
-    } catch (requestError) {
+      setText(extractedText)
+      await runTextPrediction(extractedText, 'image', 'predict-image')
+    } catch {
       setResult(null)
-      setError(resolveNetworkErrorMessage(requestError, 'predict-image'))
+      setError('Could not read this image. Try a clearer PNG, JPG, or WEBP file.')
       setRetryContext('predict-image')
     } finally {
       setLoading(false)

@@ -7,17 +7,23 @@ import io
 import json
 import logging
 import re
+import tempfile
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import joblib
-import pytesseract
 from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from PIL import Image
 from pydantic import BaseModel
+
+try:
+    import pytesseract
+    from PIL import Image
+except ImportError:
+    pytesseract = None
+    Image = None
 
 
 # ================= CONFIG =================
@@ -203,6 +209,9 @@ def load_probability_threshold() -> None:
 
 
 def extract_text_from_image(file_bytes: bytes) -> str:
+    if pytesseract is None or Image is None:
+        raise RuntimeError("Server-side OCR dependencies are not installed")
+
     image = Image.open(io.BytesIO(file_bytes))
     text = pytesseract.image_to_string(image)
     return text.strip()
@@ -333,7 +342,19 @@ def api_only_response_payload(requested_path: str) -> Dict[str, Any]:
     }
 
 
-def persist_feedback(feedback_type: str, text: str) -> None:
+def persist_feedback(feedback_type: str, text: str) -> bool:
+    if os.getenv("VERCEL"):
+        feedback_file = os.path.join(tempfile.gettempdir(), "fake_news_feedback.jsonl")
+        feedback_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "feedback": feedback_type,
+            "text": (text or "")[:500],
+        }
+        with open(feedback_file, "a", encoding="utf-8") as file:
+            file.write(json.dumps(feedback_entry))
+            file.write("\n")
+        return False
+
     feedback_dir = os.path.join(BACKEND_DIR, "feedback")
     os.makedirs(feedback_dir, exist_ok=True)
 
@@ -356,6 +377,8 @@ def persist_feedback(feedback_type: str, text: str) -> None:
 
     with open(feedback_file, "w", encoding="utf-8") as file:
         json.dump(feedback_data, file, indent=2)
+
+    return True
 
 
 load_probability_threshold()
@@ -396,6 +419,20 @@ async def predict_image_api(image: UploadFile = File(...)) -> JSONResponse:
 
     try:
         extracted_text = extract_text_from_image(image_bytes)
+    except RuntimeError as error:
+        logger.warning("Server-side OCR unavailable: %s", error)
+        return JSONResponse(
+            {
+                "result": None,
+                "prob": None,
+                "input_text": "",
+                "fake_reasons": None,
+                "fake_reasons_list": [],
+                "verification_tips": [],
+                "note": "Server-side OCR is unavailable. Use the web app for browser-based image analysis.",
+            },
+            status_code=503,
+        )
     except Exception:
         logger.exception("Failed to process image")
         return JSONResponse(
@@ -448,10 +485,14 @@ async def feedback_api(request: Request) -> JSONResponse:
         )
 
     try:
-        persist_feedback(feedback_type, text)
+        is_persistent = persist_feedback(feedback_type, text)
         logger.info("Feedback received: %s", feedback_type)
         return JSONResponse(
-            {"status": "success", "message": "Feedback saved successfully"},
+            {
+                "status": "success",
+                "message": "Feedback saved successfully" if is_persistent else "Feedback received",
+                "persistent": is_persistent,
+            },
             status_code=200,
         )
     except Exception:

@@ -1,0 +1,14 @@
+.git
+.github
+.vscode
+dataset
+docs
+frontend/dist
+frontend/node_modules
+venv
+**/__pycache__
+*.log
+Dockerfile
+render.yaml
+run_dev.py
+backend/core/train.py

@@ -1,0 +1,2 @@
+[tool.vercel.scripts]
+dev = "backend.core.main:app"

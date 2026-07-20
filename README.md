@@ -83,6 +83,9 @@ FakeNewsDetection/
 │   └── screenshots/             # README website screenshots
 ├── Dockerfile                   # Render backend container
 ├── render.yaml                  # Render Blueprint config
+├── vercel.json                  # Vercel frontend + API routing
+├── pyproject.toml               # Explicit Vercel FastAPI entry point
+├── api/index.py                 # Vercel FastAPI function entry point
 ├── Testing.md                   # QA checklist and test cases
 ├── requirements.txt
 └── README.md
@@ -93,7 +96,7 @@ FakeNewsDetection/
 - Python 3.9+
 - Node.js 18+
 - npm
-- Tesseract OCR installed
+- Tesseract OCR installed only when using the server-side image endpoint
 
 ## Clone Repository
 
@@ -171,7 +174,9 @@ npm run dev
 
 ## Environment Variable (Frontend)
 
-Set backend base URL before deploy:
+The frontend uses same-origin `/api` by default, which is suitable for Vercel.
+Set a backend base URL only when the frontend and backend are deployed
+separately:
 
 macOS / Linux:
 
@@ -195,6 +200,27 @@ cd frontend
 npm install
 npm run deploy
 ```
+
+## Deploy Full Stack on Vercel
+
+This repository includes `vercel.json` and `api/index.py`, so one Vercel project
+can deploy the Vite frontend and FastAPI text-prediction API.
+
+1. Import the repository into Vercel.
+2. Keep the project root as the repository root.
+3. Leave the build settings as configured by `vercel.json`.
+4. Deploy and verify:
+   - `/home`
+   - `/api/health`
+   - `/docs`
+
+No environment variable is required for the standard same-origin deployment.
+Image OCR runs in the browser, then sends extracted text to the FastAPI model.
+The Vercel Python runtime is pinned to Python 3.12 in `.python-version`.
+
+Vercel Functions only provide temporary writable storage, so feedback accepted
+on Vercel is not durable. Connect a database or external storage service before
+using feedback for production data collection.
 
 ## Deploy Backend on Render (Docker)
 
@@ -225,7 +251,7 @@ CORS_ALLOW_ORIGINS=https://ankit-xo.github.io,http://localhost:3000,http://127.0
 
 ## Notes
 
-- Threshold for REAL classification: `0.50` (`PROB_THRESHOLD`)
+- Threshold for REAL classification: `0.40` (loaded from model metadata)
 - Dataset CSV files are tracked with Git LFS
 - Render free plan may sleep after inactivity
 
