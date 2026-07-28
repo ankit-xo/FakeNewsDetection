@@ -1,4 +1,5 @@
-# Fake News Detection
+# 📰 Fake News Detection 
+
 
 ![Author](https://img.shields.io/badge/Author-Ankit-blue?style=for-the-badge)
 ![GitHub](https://img.shields.io/badge/GitHub-ankitanand047-black?style=for-the-badge&logo=github)
@@ -6,11 +7,11 @@
 
 A full-stack project to detect whether news content is likely **REAL** or **FAKE** using text classification and image OCR.
 
-## Live Demo
+## 🚀 Live Demo
 
 - Website (GitHub Pages): `https://ankitaanand047.github.io/FakeNewsDetection/home`
 
-## Website Screenshots
+## 📸 Website Screenshots
 
 | Home | Text Check |
 |---|---|
@@ -21,7 +22,7 @@ A full-stack project to detect whether news content is likely **REAL** or **FAKE
 | ![Image Check Page](docs/screenshots/image-check.png) | ![About Page](docs/screenshots/about.png) |
 
 
-## Project Highlights
+## ✨ Project Highlights
 
 - Text news prediction with confidence score
 - Image-based prediction using OCR + model inference
@@ -32,7 +33,7 @@ A full-stack project to detect whether news content is likely **REAL** or **FAKE
 - Feedback collection and contact email
 - Mobile-optimized header/footer and responsive layout
 
-## Model Performance Snapshot
+## 📈 Model Performance Snapshot
 
 | Metric | Value |
 |---|---|
@@ -50,20 +51,20 @@ Confusion matrix (validation split, positive class = FAKE):
 | FAKE | 3470 | 110 |
 | REAL | 9 | 4176 |
 
-## Architecture
+## 🏗 Architecture
 
 Frontend sends text/image input to FastAPI. Backend preprocesses text/OCR output, runs the model, and returns result + confidence + insights.
 
 ![Architecture Diagram](frontend/public/assets/architecture-diagram.svg)
 
-## Tech Stack
+## 🛠 Tech Stack
 
 - Frontend: React + Vite
 - Backend: FastAPI
 - ML: scikit-learn
 - OCR: pytesseract + Pillow
 
-## Project Structure
+## 📂 Project Structure
 
 ```text
 FakeNewsDetection/
@@ -89,21 +90,21 @@ FakeNewsDetection/
 └── README.md
 ```
 
-## Prerequisites
+## ⚙ Prerequisites
 
 - Python 3.9+
 - Node.js 18+
 - npm
 - Tesseract OCR installed only when using the server-side image endpoint
 
-## Clone Repository
+## 🚀 Clone Repository
 
 ```bash
 git clone https://github.com/ankit-xo/FakeNewsDetection.git
 cd FakeNewsDetection
 ```
 
-## Run Locally
+## ▶ Run Locally
 
 ### One Command Start
 
@@ -153,22 +154,6 @@ npm run dev
 - Frontend: `http://localhost:3000/home`
 - Backend docs: `http://localhost:8000/docs`
 
-### 4) Quick Health Check
-
-- API health: `http://localhost:8000/api/health`
-- Frontend health pill should show: `API Online • Model Ready`
-
-## Quick Demo Flow (For Evaluator)
-
-1. Open `Text Check` and click `Load Sample News`.
-2. Click `Predict` and review:
-   - result badge,
-   - confidence bar,
-   - `Why this result?`,
-   - `Fact-check tips`.
-3. Open `Image Check`, upload sample image, run prediction.
-4. Test `Feedback` buttons (`Real` / `Fake`).
-5. Disconnect backend briefly to verify error + retry UX.
 
 ## Environment Variable (Frontend)
 
@@ -191,67 +176,53 @@ $env:VITE_API_BASE_URL="https://your-backend-url.com"
 npm run deploy
 ```
 
-## Deploy Frontend on GitHub Pages
+# 🌐 Deployment
+
+## GitHub Pages
 
 ```bash
 cd frontend
+
 npm install
+
 npm run deploy
 ```
 
-## Deploy Full Stack on Vercel
+## Vercel
 
-This repository deploys the Vite frontend on Vercel and uses the FastAPI backend
-hosted on Render.
+- Import Repository
+- Root Directory → frontend
+- Framework → Vite
+- Deploy
 
-1. Import the repository into Vercel.
-2. Set **Root Directory** to `frontend`.
-3. Keep **Framework Preset** as `Vite`.
-4. Leave the remaining build settings at their Vite defaults. The SPA rewrite is
-   configured in `frontend/vercel.json`.
-5. Deploy and open `/home`.
+## Render
 
-No Vercel Python Function is required. Production API calls use the Render
-backend URL configured in `frontend/src/App.jsx`. Image OCR runs in the browser,
-then sends extracted text to the Render FastAPI model.
+- Runtime → Docker
+- Branch → main
+- Health Path → /api/health
 
-Set `VITE_API_BASE_URL` in Vercel only when deploying the backend at a different
-public URL.
+---
 
-## Deploy Backend on Render (Docker)
+# 📌 Notes
 
-This repository already includes `Dockerfile` and `render.yaml`.
+- Threshold for REAL = **0.40**
+- Dataset managed using Git LFS
+- Render free instance may sleep
 
-1. Push latest code to GitHub.
-2. In Render, create a new `Blueprint` or `Web Service`.
-3. Use:
-   - Runtime: Docker
-   - Branch: `main`
-   - Health Check Path: `/api/health`
-4. Set env var:
+---
 
-```text
-CORS_ALLOW_ORIGINS=https://ankit-xo.github.io,http://localhost:3000,http://127.0.0.1:3000
-```
+# 👨‍💻 Author
 
-5. Deploy and verify:
-   - `https://fake-news-detection-api-8zp1.onrender.com`
+## Ankit Anand
 
-## API Endpoints
+📧 ankitanand.works@gmail.com
 
-- `GET /api/health`
-- `POST /api/predict`
-- `POST /api/predict-image`
-- `POST /api/feedback`
+---
 
+<div align="center">
 
-## Notes
+## ⭐ If you like this project, please consider giving it a Star!
 
-- Threshold for REAL classification: `0.40` (loaded from model metadata)
-- Dataset CSV files are tracked with Git LFS
-- Render free plan may sleep after inactivity
+Made with ❤️ by **Ankit Anand**
 
-## Author
-
-**Ankit Anand**
-- Feedback email: [ankitanand.works@gmail.com](mailto:ankitanand.works@gmail.com)
+</div>
